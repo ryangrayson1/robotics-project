@@ -6,4 +6,9 @@
 
 	<!-- TODO add any calls to your code -->
 
+  <node pkg="simple_control" type="global_planner.py" name="global_planner" output="screen">
+    <param name="map_width" type="int" value="$(arg map_width)" />
+    <param name="map_height" type="int" value="$(arg map_height)" />
+  </node>
+
 </launch>
