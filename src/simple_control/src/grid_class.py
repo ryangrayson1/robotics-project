@@ -3,6 +3,7 @@ from math import floor
 
 class Grid:
     def __init__(self, width, height):
+        self.updates = 0
         self.width = height
         self.height = width
         self.grid = [[50] * height for _ in range(width)]
@@ -19,6 +20,8 @@ class Grid:
             # TODO
 
             cur_angle += inc
+        
+        self.updates += 1
 
     # Source: https://stackoverflow.com/questions/35807686/find-cells-in-array-that-are-crossed-by-a-given-line-segment
     def sign(self, n):
