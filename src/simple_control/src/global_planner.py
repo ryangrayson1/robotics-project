@@ -45,7 +45,7 @@ class GlobalPlanner():
     print("lidar sub laserscan:")
     print(msg)
     self.lidar_reading = msg
-    self.grid.update(msg)
+    self.grid.update(msg, self.drone_pos)
     if self.state == -1 and self.grid.updates == 5:
         self.state = self.PLANNING_ROUTE
 

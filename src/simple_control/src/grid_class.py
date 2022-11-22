@@ -4,20 +4,48 @@ from math import floor
 class Grid:
     def __init__(self, width, height):
         self.updates = 0
-        self.width = height
-        self.height = width
-        self.grid = [[50] * height for _ in range(width)]
+        self.width = width
+        self.height = height
+        self.grid = [[50] * width for _ in range(height)]
 
-    def update(self, lidar_reading):
+    def update(self, drone_position, lidar_reading):
         inc = lidar_reading.angle_increment
         cur_angle = lidar_reading.angle_min
         for i in range(len(lidar_reading.ranges)):
-            x = lidar_reading.ranges[i] * math.sin(cur_angle)
-            y = lidar_reading.ranges[i] * math.cos(cur_angle)
+            x1 = drone_position.x
+            y1 = drone_position.y
+            x2 = lidar_reading.range_max * math.sin(cur_angle)
+            y2 = lidar_reading.range_max * math.cos(cur_angle)
 
-            # if abs(x - x // 1) > abs(y - y // 1): # shift x
+            # shift each x and y value half a cell up and to the right
+            x1 += 0.5
+            y1 += 0.5
+            x2 += 0.5
+            y2 += 0.5
+
+            cells_crossed = self.raytrace((x1, y1), (x2, y2), max_dist=lidar_reading.range_max)
+            j = 0
+            white_cells = []
+            while j < len(cells_crossed) and cells_crossed[j][2] < lidar_reading.ranges[i]:
+                white_cells.append(cells_crossed[j])
+                j += 1
+            black_cell = None
+            if (j < len(cells_crossed)):
+                black_cell = cells_crossed[j]
             
-            # TODO
+            # mark the white cells as white
+            for white_cell in white_cells:
+                grid_x = white_cell[0] + math.floor(self.width / 2)
+                grid_y = white_cell[1] + math.floor(self.height / 2)
+                self.grid[grid_y][grid_x] -= 5
+                self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
+
+            
+            # mark the black cells as black
+            grid_x = black_cell[0] + math.floor(self.width / 2)
+            grid_y = black_cell[1] + math.floor(self.height / 2)
+            self.grid[grid_y][grid_x] += 5
+            self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
             cur_angle += inc
         
