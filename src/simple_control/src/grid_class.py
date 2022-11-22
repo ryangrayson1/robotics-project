@@ -56,7 +56,6 @@ class Grid:
         while ((targetCell["x"] != currentCell["x"] or targetCell["y"] != currentCell["y"]) and math.dist(A, intersect) < max_dist):
             movx = intersection_distance_x <= intersection_distance_y
             movy = intersection_distance_y <= intersection_distance_x
-            print(intersection_distance_x, intersection_distance_y)
         
             if movx:
                 currentCell["x"] += direction_x
