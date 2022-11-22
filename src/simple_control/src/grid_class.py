@@ -24,52 +24,51 @@ class Grid:
     def sign(self, n):
         return (n > 0) - (n < 0)
 
-    def dist(self, A, B):
-        return math.sqrt((A[0] - B[0]) ** 2 + (A[1] - B[1]) ** 2)
-
     # Source: https://stackoverflow.com/questions/35807686/find-cells-in-array-that-are-crossed-by-a-given-line-segment
-    def raytrace(self, A, B):
+    def raytrace(self, A, B, max_dist=5):
         """ Return all cells of the unit grid crossed by the line segment between
             A and B.
         """
+        dx = B[0] - A[0]
+        dy = B[1] - A[1]
 
-        (xA, yA) = A
-        (xB, yB) = B
-        (dx, dy) = (xB - xA, yB - yA)
-        (sx, sy) = (self.sign(dx), self.sign(dy))
+        direction_x = self.sign(dx)
+        direction_y = self.sign(dy)
 
-        grid_A = (floor(A[0]), floor(A[1]))
-        grid_B = (floor(B[0]), floor(B[1]))
-        (x, y) = grid_A
-        traversed=[grid_A + (0, )]
-        intersection = (0, 0)
+        direction_modifier_x = 0 if direction_x < 0 else direction_x
+        direction_modifier_y = 0 if direction_y < 0 else direction_y
 
-        tIx = dy * (x + sx - xA) if dx != 0 else float("+inf")
-        tIy = dx * (y + sy - yA) if dy != 0 else float("+inf")
-        print(tIx, tIy)
-        print(dx, dy)
+        currentCell = {"x": math.floor(A[0]), "y": math.floor(A[1])}
+        targetCell = {"x": math.floor(B[0]), "y": math.floor(B[1])}
 
-        while (x,y) != grid_B:
-            # NB if tIx == tIy we increment both x and y
-            (movx, movy) = (tIx <= tIy, tIy <= tIx)
+        traversed = [(currentCell["x"], currentCell["y"], 0)]
+        intersect = (0, 0)
 
+        calcIntersectionDistanceX = lambda: abs(dy * (currentCell["x"] + direction_modifier_x - A[0]))
+        calcIntersectionDistanceY = lambda: abs(dx * (currentCell["y"] + direction_modifier_y - A[1]))
+
+        intersection_distance_x = float("+inf") if dx == 0 else calcIntersectionDistanceX()
+        intersection_distance_y = float("+inf") if dy == 0 else calcIntersectionDistanceY()
+
+        while ((targetCell["x"] != currentCell["x"] or targetCell["y"] != currentCell["y"]) and math.dist(A, intersect) < max_dist):
+            movx = intersection_distance_x <= intersection_distance_y
+            movy = intersection_distance_y <= intersection_distance_x
+            print(intersection_distance_x, intersection_distance_y)
+        
             if movx:
-                # intersection is at (x + sx, yA + tIx / dx^2)
-                intersection = (float(x + sx), yA + tIx / abs(dx))
-                x += sx
-                tIx = dy * (x + sx - xA)
-
-            if movy:
-                # intersection is at (xA + tIy / dy^2, y + sy)
-                intersection = (xA + tIy / abs(dy), float(y + sy))
-                y += sy
-                tIy = dx * (y + sy - yA)
+                currentCell["x"] += direction_x
+                intersect = (currentCell["x"] + 1 - direction_modifier_x, A[1] + intersection_distance_x / dx)
+                intersection_distance_x = calcIntersectionDistanceX()
             
-            print(intersection)
-            traversed.append((x,y, self.dist(A, intersection)))
+            if movy:
+                currentCell["y"] += direction_y
+                intersect = (A[0] + intersection_distance_y / dy, currentCell["y"] + 1 - direction_modifier_y)
+                intersection_distance_y = calcIntersectionDistanceY()
+            
+            traversed.append((currentCell["x"], currentCell["y"], math.dist(A, intersect)))
 
         return traversed
         
 if __name__ == "__main__":
     grid = Grid(10, 10)
-    print(grid.raytrace((0, 0), (1, -2)))
+    print(grid.raytrace((0, 0), (-10, 1)))
