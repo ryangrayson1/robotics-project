@@ -3,4 +3,4 @@
 build/
 devel/
 logs/
-*.pyc
+**/*.pyc
