@@ -109,7 +109,7 @@ class GlobalPlanner():
         pass
 
 
-      self.rate.sleep()
+      rate.sleep()
 
   # Called on ROS shutdown
   def shutdown_sequence(self):
