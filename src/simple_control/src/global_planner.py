@@ -48,7 +48,7 @@ class GlobalPlanner():
     if self.state == self.LOCATING_DOG:
       try:
         self.tower_pos = msg
-        transform = self.tfBuffer.lookup_transform('world', 'cell_tower', rospy.Time())
+        transform = self.tfBuffer.lookup_transform('cell_tower', 'world', rospy.Time())
         point = PointStamped()
         point.header.stamp = rospy.Time.now()
         point.header.frame_id = 'world'
@@ -63,7 +63,6 @@ class GlobalPlanner():
         print('tf2 exception, continuing')
 
   def lidar_callback(self, msg):
-    return
     print("lidar sub laserscan:")
     print(msg)
     self.lidar_reading = msg
@@ -100,8 +99,6 @@ class GlobalPlanner():
 
       if self.state == self.LOCATING_DOG:
         continue
-
-      break
 
       if self.state == self.PLANNING_ROUTE:
         self.plan_route()
