@@ -65,11 +65,14 @@ class GlobalPlanner():
   def lidar_callback(self, msg):
     self.lidar_reading = msg
     self.grid.update(self.drone_pose, msg)
-    if self.state == -1 and self.grid.updates == 5:
-        self.state = self.PLANNING_ROUTE
+
+    if self.grid.updates > 100:
+      self.grid.print_average_diffs()
+      rospy.signal_shutdown("test")
+    # if self.state == -1 and self.grid.updates == 5:
+    #     self.state = self.PLANNING_ROUTE
 
   def drone_pose_callback(self, msg):
-    print("drone pos callback")
     self.drone_pose = msg.pose
 
   def plan_route(self):
