@@ -30,13 +30,13 @@ class GlobalPlanner():
 
     self.tower_pos = Vector3()
     self.lidar_reading = LaserScan()
-    self.drone_pos = Vector3(0, 0, 0)
+    self.drone_pose = Vector3(0, 0, 0)
     self.dog_pos = Vector3()
 
     # subscribers
     self.tower_pos_sub = rospy.Subscriber("/cell_tower/position", Vector3, self.tower_pos_callback, queue_size=1)
     self.lidar_sub = rospy.Subscriber("/uav/sensors/lidar", LaserScan, self.lidar_callback, queue_size=1)
-    self.drone_pos_sub = rospy.Subscriber("/uav/sensors/gps", PoseStamped, self.drone_pos_callback, queue_size=1)
+    self.drone_pose_sub = rospy.Subscriber("/uav/sensors/gps", PoseStamped, self.drone_pose_callback, queue_size=1)
     # self.keys_sub = rospy.Subscriber("/keys", String, self.keys_callback, queue_size=1)
 
     self.tfBuffer = tf2_ros.Buffer()
@@ -63,16 +63,14 @@ class GlobalPlanner():
         print('tf2 exception, continuing')
 
   def lidar_callback(self, msg):
-    print("lidar sub laserscan:")
-    print(msg)
     self.lidar_reading = msg
-    self.grid.update(msg, self.drone_pos)
+    self.grid.update(self.drone_pose, msg)
     if self.state == -1 and self.grid.updates == 5:
         self.state = self.PLANNING_ROUTE
 
-  def drone_pos_callback(self, msg):
+  def drone_pose_callback(self, msg):
     print("drone pos callback")
-    self.drone_pos = msg.pose.position
+    self.drone_pose = msg.pose
 
   def plan_route(self):
     # here assume we are at the center of a square, and that we have sufficient lidar data for occupancy grid
