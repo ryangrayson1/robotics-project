@@ -12,7 +12,7 @@ class Grid:
         self.updates = 0
         self.width = width
         self.height = height
-        self.grid = [[50] * width for _ in range(height)]
+        self.grid = [[FREE_THRESHOLD] * width for _ in range(height)]
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
@@ -32,7 +32,7 @@ class Grid:
         self.grid[y][x] = val
     
     def can_travel(self, x, y):
-        if 0 <= x < self.width and 0 <= y < self.height:
+        if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
             return self.grid[y][x] < 0 or self.grid[y][x] > FREE_THRESHOLD
         return False
 
