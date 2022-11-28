@@ -38,12 +38,13 @@ class Grid:
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
-            return self.grid[y][x] < 0 or self.grid[y][x] > FREE_THRESHOLD
+            return self.grid[y][x] < 0 or self.grid[y][x] >= FREE_THRESHOLD
         return False
 
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
         cur_angle = lidar_reading.angle_min
+        self.current_measures = [[None] * self.width for _ in range(self.height)]
         for i in range(len(lidar_reading.ranges)):
             x1 = drone_pose.position.x
             y1 = drone_pose.position.y
@@ -180,7 +181,9 @@ class Grid:
         grid_string = ""
         for i in range(len(self.grid)):
             for j in range(len(self.grid[0])):
-                if self.grid[i][j] > 50:
+                if self.grid[i][j] == -3:
+                    grid_string = grid_string + "T"
+                elif self.grid[i][j] > 50:
                     grid_string = grid_string + "#"
                 elif self.grid[i][j] < 50:
                     grid_string = grid_string + " "
