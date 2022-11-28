@@ -84,7 +84,11 @@ class GlobalPlanner():
     # check if next step is a door, if so change state to opening door
     # else publish to position topic to take the step, set state to moving
     self.grid_lock.acquire()
-    grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+    try:
+      grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+    except:
+      self.grid.print_grid()
+      rospy.signal_shutdown("test")
     self.grid_lock.release()
     print("next move:", grid_x, grid_y)
 

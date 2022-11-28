@@ -1,4 +1,5 @@
 import math
+import copy
 from tf.transformations import euler_from_quaternion
 
 class MismatchedLengthsError(Exception):
@@ -12,7 +13,11 @@ class Grid:
         self.updates = 0
         self.width = width
         self.height = height
-        self.grid = [[FREE_THRESHOLD] * width for _ in range(height)]
+        self.grid = [[50] * width for _ in range(height)]
+        self.last_measures = [[None] * width for _ in range(height)]
+        self.current_measures = None
+        self.times_diff_measured = [[0] * width for _ in range(height)]
+        self.average_diffs = [[0] * width for _ in range(height)]
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
@@ -33,12 +38,13 @@ class Grid:
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
-            return self.grid[y][x] < 0 or self.grid[y][x] > FREE_THRESHOLD
+            return self.grid[y][x] < 0 or self.grid[y][x] >= FREE_THRESHOLD
         return False
 
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
         cur_angle = lidar_reading.angle_min
+        self.current_measures = [[None] * self.width for _ in range(self.height)]
         for i in range(len(lidar_reading.ranges)):
             x1 = drone_pose.position.x
             y1 = drone_pose.position.y
@@ -79,7 +85,6 @@ class Grid:
                 self.grid[grid_y][grid_x] -= 5
                 self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
-            
             # mark the black cell as black (make it blacker)
             if black_cell:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
@@ -87,18 +92,32 @@ class Grid:
                 self.grid[grid_y][grid_x] += 5
                 self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
-            print("Finished update!")
-            print("Drone position:  " + str(drone_pose.position))
-            print("Angle min:       " + str(lidar_reading.angle_min * 57.2958))
-            print("Cur angle:       " + str(cur_angle * 57.2958))
-            print("Lidar distance:  " + str(lidar_reading.ranges[i]))
-            print("Cells crossed:   " + str(cells_crossed))
-            print("White cells:     " + str(white_cells))
-            print("Black cell:      " + str(black_cell))
-            self.print_grid()
+                # Door detection logic
+                # Observe and record the average difference in distance between this measurement and the previous measurement of the same tile.
+                if self.last_measures[grid_y][grid_x] and self.current_measures[grid_y][grid_x] is None:
+                    diff = abs(self.last_measures[grid_y][grid_x] - lidar_reading.ranges[i])
+                    self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
+                        / (self.times_diff_measured[grid_y][grid_x] + 1))
+
+                    self.times_diff_measured[grid_y][grid_x] += 1
+                
+                if self.current_measures[grid_y][grid_x] is None:
+                    self.current_measures[grid_y][grid_x] = lidar_reading.ranges[i]
+
+            # print("Finished update!")
+            # print("Drone position:  " + str(drone_pose.position))
+            # print("Drone angle:     " + str(euler_angles[2] * 57.2958))
+            # print("Angle min:       " + str(lidar_reading.angle_min * 57.2958))
+            # print("Cur angle:       " + str(cur_angle * 57.2958))
+            # print("Lidar distance:  " + str(lidar_reading.ranges[i]))
+            # print("Cells crossed:   " + str(cells_crossed))
+            # print("White cells:     " + str(white_cells))
+            # print("Black cell:      " + str(black_cell))
+            # self.print_grid()
 
             cur_angle += inc
         
+        self.last_measures = copy.deepcopy(self.current_measures)
         self.updates += 1
 
     # Source: https://stackoverflow.com/questions/35807686/find-cells-in-array-that-are-crossed-by-a-given-line-segment
@@ -162,12 +181,27 @@ class Grid:
         grid_string = ""
         for i in range(len(self.grid)):
             for j in range(len(self.grid[0])):
-                if self.grid[i][j] > 50:
+                if self.grid[i][j] == -3:
+                    grid_string = grid_string + "T"
+                elif self.grid[i][j] > 50:
                     grid_string = grid_string + "#"
                 elif self.grid[i][j] < 50:
                     grid_string = grid_string + " "
                 else:
                     grid_string = grid_string + "-"
+            grid_string = grid_string + "\n"
+        print(grid_string)
+
+    def print_average_diffs(self):
+        grid_string = "  "
+        for i in range(len(self.average_diffs[1])):
+            grid_string += str(i) + " " * (5 - len(str(i)))
+        grid_string += "\n"
+        for i in range(len(self.average_diffs)):
+            grid_string += str(i) + " "
+            for j in range(len(self.average_diffs[1])):
+                grid_string += "{:.2f}".format(self.average_diffs[i][j])
+                grid_string += " "
             grid_string = grid_string + "\n"
         print(grid_string)
         
