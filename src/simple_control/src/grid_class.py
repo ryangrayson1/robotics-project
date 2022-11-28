@@ -47,6 +47,10 @@ class Grid:
             return self.grid[y][x] <= FREE_THRESHOLD
         return False
 
+    def is_door(self, x, y):
+        return True
+        return -2 <= self.grid[y][x] <= -1
+
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
         cur_angle = lidar_reading.angle_min
