@@ -38,8 +38,7 @@ class Grid:
 
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
-        euler_angles = euler_from_quaternion((drone_pose.orientation.x,drone_pose.orientation.y,drone_pose.orientation.z,drone_pose.orientation.w))
-        cur_angle = lidar_reading.angle_min + euler_angles[2]
+        cur_angle = lidar_reading.angle_min
         for i in range(len(lidar_reading.ranges)):
             x1 = drone_pose.position.x
             y1 = drone_pose.position.y
@@ -88,16 +87,15 @@ class Grid:
                 self.grid[grid_y][grid_x] += 5
                 self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
-            # print("Finished update!")
-            # print("Drone position:  " + str(drone_pose.position))
-            # print("Drone angle:     " + str(euler_angles[2] * 57.2958))
-            # print("Angle min:       " + str(lidar_reading.angle_min * 57.2958))
-            # print("Cur angle:       " + str(cur_angle * 57.2958))
-            # print("Lidar distance:  " + str(lidar_reading.ranges[i]))
-            # print("Cells crossed:   " + str(cells_crossed))
-            # print("White cells:     " + str(white_cells))
-            # print("Black cell:      " + str(black_cell))
-            # self.print_grid()
+            print("Finished update!")
+            print("Drone position:  " + str(drone_pose.position))
+            print("Angle min:       " + str(lidar_reading.angle_min * 57.2958))
+            print("Cur angle:       " + str(cur_angle * 57.2958))
+            print("Lidar distance:  " + str(lidar_reading.ranges[i]))
+            print("Cells crossed:   " + str(cells_crossed))
+            print("White cells:     " + str(white_cells))
+            print("Black cell:      " + str(black_cell))
+            self.print_grid()
 
             cur_angle += inc
         
