@@ -6,6 +6,7 @@ import math
 import numpy as np
 from threading import Lock
 from grid_class import Grid
+from astar_class import AStar
 
 from geometry_msgs.msg import Vector3, PoseStamped, TwistStamped, Vector3Stamped, PointStamped
 from std_msgs.msg import String, Bool, Float64
@@ -27,6 +28,8 @@ class GlobalPlanner():
     self.map_width = rospy.get_param("/global_planner/map_width", 23)
     self.map_height = rospy.get_param("/global_planner/map_height", 23)
     self.grid = Grid(self.map_width, self.map_height)
+    self.grid_lock = Lock()
+    self.astar = AStar(self.grid)
 
     self.tower_pos = Vector3()
     self.lidar_reading = LaserScan()
@@ -57,19 +60,21 @@ class GlobalPlanner():
         point.point.z = msg.z
         new_point = do_transform_point(point, transform)
         self.dog_pos = Vector3(new_point.point.x, new_point.point.y, new_point.point.z)
-        print(self.dog_pos)
+        dog_x, dog_y = self.grid.world_to_grid(self.dog_pos)
+        self.grid.set_cell(dog_x, dog_y, -3)
+        print("dog pos:", self.dog_pos)
         self.state = self.PLANNING_ROUTE
       except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
         print('tf2 exception, continuing')
 
   def lidar_callback(self, msg):
     self.lidar_reading = msg
+    self.grid_lock.acquire()
     self.grid.update(self.drone_pose, msg)
-    if self.state == -1 and self.grid.updates == 5:
-        self.state = self.PLANNING_ROUTE
+    self.grid_lock.release()
 
   def drone_pose_callback(self, msg):
-    print("drone pos callback")
+    # print("drone pos callback")
     self.drone_pose = msg.pose
 
   def plan_route(self):
@@ -78,7 +83,10 @@ class GlobalPlanner():
 
     # check if next step is a door, if so change state to opening door
     # else publish to position topic to take the step, set state to moving
-    pass
+    self.grid_lock.acquire()
+    grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+    self.grid_lock.release()
+    print("next move:", grid_x, grid_y)
 
   def open_door(self):
     # wait for service call that uses key
@@ -100,8 +108,10 @@ class GlobalPlanner():
 
       if self.state == self.PLANNING_ROUTE:
         self.plan_route()
+
       elif self.state == self.OPENING_DOOR:
         self.open_door()
+        
       elif self.state == self.MOVING:
         # maybe add some abort functionality here if close to a wall
         pass
