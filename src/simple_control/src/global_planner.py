@@ -85,6 +85,7 @@ class GlobalPlanner():
     # else publish to position topic to take the step, set state to moving
     self.grid_lock.acquire()
     try:
+      self.grid.print_grid()
       grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
     except:
       self.grid.print_grid()

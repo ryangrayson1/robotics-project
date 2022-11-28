@@ -1,6 +1,7 @@
 import math
 import copy
 from tf.transformations import euler_from_quaternion
+from geometry_msgs.msg import Vector3
 
 class MismatchedLengthsError(Exception):
     """Raised when you attempt to find the distance between two points of different dimensions"""
@@ -21,24 +22,29 @@ class Grid:
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
-        x_offset = self.width // 2
-        if world_pos.x > 0:
-            x_offset += 1
-        y_offset = self.height // 2
-        if world_pos.y > 0:
-            y_offset += 1
-        return int(world_pos.x) + x_offset, int(world_pos.y) + y_offset
+        print(world_pos)
+        world_x_shifted = world_pos.x + 0.50001
+        world_y_shifted = world_pos.y + 0.50001
+        grid_x = int(self.width // 2) + int(world_x_shifted)
+        grid_y = int(self.height // 2) - int(world_y_shifted)
+        print("wtg")
+        print(grid_x, grid_y)
+        return grid_x, grid_y
     
     # assumes integer input coordinates like those returned from world_to_grid
     def grid_to_world(self, grid_pos):
-        return grid_pos[0] - self.width // 2, grid_pos[1] - self.height // 2
+        world_x_shifted = int(grid_pos[0]) - int(self.width / 2)
+        world_y_shifted = int(self.height / 2) - int(grid_pos[1])
+        world_x = world_x_shifted - 0.5
+        world_y = world_y_shifted - 0.5
+        return world_x, world_y
     
     def set_cell(self, x, y, val):
         self.grid[y][x] = val
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
-            return self.grid[y][x] < 0 or self.grid[y][x] >= FREE_THRESHOLD
+            return self.grid[y][x] <= FREE_THRESHOLD
         return False
 
     def update(self, drone_pose, lidar_reading):
@@ -206,5 +212,7 @@ class Grid:
         print(grid_string)
         
 if __name__ == "__main__":
-    grid = Grid(10, 10)
-    print(grid.raytrace((0.5, 0.5), (1.5, 1.1)))
+    grid = Grid(11, 11)
+    # print(grid.raytrace((0.5, 0.5), (1.5, 1.1)))
+    print(grid.world_to_grid(Vector3(3.5, 3.5, 3.0)))
+
