@@ -30,7 +30,7 @@ class GlobalPlanner():
 
     self.tower_pos = Vector3()
     self.lidar_reading = LaserScan()
-    self.drone_pose = Vector3(0, 0, 0)
+    self.drone_pose = PoseStamped()
     self.dog_pos = Vector3()
 
     # subscribers
