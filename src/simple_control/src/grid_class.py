@@ -6,6 +6,8 @@ class MismatchedLengthsError(Exception):
     """Raised when you attempt to find the distance between two points of different dimensions"""
     pass
 
+FREE_THRESHOLD = 50
+
 class Grid:
     def __init__(self, width, height):
         self.updates = 0
@@ -16,12 +18,32 @@ class Grid:
         self.current_measures = None
         self.times_diff_measured = [[0] * width for _ in range(height)]
         self.average_diffs = [[0] * width for _ in range(height)]
+    
+    # assumes fully raw position as input, such as from the dog position
+    def world_to_grid(self, world_pos):
+        x_offset = self.width // 2
+        if world_pos.x > 0:
+            x_offset += 1
+        y_offset = self.height // 2
+        if world_pos.y > 0:
+            y_offset += 1
+        return int(world_pos.x) + x_offset, int(world_pos.y) + y_offset
+    
+    # assumes integer input coordinates like those returned from world_to_grid
+    def grid_to_world(self, grid_pos):
+        return grid_pos[0] - self.width // 2, grid_pos[1] - self.height // 2
+    
+    def set_cell(self, x, y, val):
+        self.grid[y][x] = val
+    
+    def can_travel(self, x, y):
+        if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
+            return self.grid[y][x] < 0 or self.grid[y][x] > FREE_THRESHOLD
+        return False
 
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
-        euler_angles = euler_from_quaternion((drone_pose.orientation.x,drone_pose.orientation.y,drone_pose.orientation.z,drone_pose.orientation.w))
-        cur_angle = lidar_reading.angle_min + euler_angles[2]
-        self.current_measures = [[None] * self.width for _ in range(self.height)]
+        cur_angle = lidar_reading.angle_min
         for i in range(len(lidar_reading.ranges)):
             x1 = drone_pose.position.x
             y1 = drone_pose.position.y
