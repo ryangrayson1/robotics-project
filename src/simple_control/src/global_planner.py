@@ -79,6 +79,10 @@ class GlobalPlanner():
     self.grid.update(self.drone_pose, msg)
     self.grid_lock.release()
 
+    if self.grid.updates == 20:
+      self.grid.print_grid()
+      rospy.signal_shutdown("test")
+
   def drone_pose_callback(self, msg):
     # print("drone pos callback")
     self.drone_pose = msg.pose
