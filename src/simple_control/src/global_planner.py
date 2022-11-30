@@ -45,6 +45,8 @@ class GlobalPlanner():
     self.drone_pose_sub = rospy.Subscriber("/uav/sensors/gps", PoseStamped, self.drone_pose_callback, queue_size=1)
     self.keys_sub = rospy.Subscriber("/keys_remaining", Int32, self.keys_callback, queue_size=1)
 
+    self.position_pub = rospy.Publisher("/uav/input/position", Vector3, queue_size=1)
+
     # self.use_key_service = rospy.Service('use_key', use_key, self.use_key_function)
 
     self.tfBuffer = tf2_ros.Buffer()
@@ -100,28 +102,36 @@ class GlobalPlanner():
     try:
       self.grid.print_grid()
       grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+      world_x, world_y = self.grid.grid_to_world(grid_x, grid_y)
+      self.next_move = Point(world_x, world_y, 3.0)
+      print("next move:", self.next_move)
     except:
       self.grid.print_grid()
       rospy.signal_shutdown("test")
     self.grid_lock.release()
-    print("next move:", grid_x, grid_y)
-    # self.next_move = Point(world_x, world_y, 3.0)
+
+    if self.grid.is_closed_door(self.next_move.x, self.next_move.y):
+      self.state = self.OPENING_DOOR
+    else:
+      self.state = self.MOVING
 
   def open_door(self):
-    if self.grid.is_door(self.next_move.x, self.next_move.y):
-      rospy.wait_for_service('use_key')
-      use_key_function = rospy.ServiceProxy('use_key', use_key)
-      res = use_key_function(self.next_move)
-      if res.success:
-        print("door opened")
-      else:
-        print("door not opened")
+    rospy.wait_for_service('use_key')
+    use_key_function = rospy.ServiceProxy('use_key', use_key)
+    res = use_key_function(self.next_move)
+    if res.success:
+      print("door opened")
+      self.grid.set_cell(self.next_move.x, self.next_move.y, -2)
+      self.state = self.MOVING
+    else:
+      print("door not opened")
+      self.grid.set_cell(self.next_move.x, self.next_move.y, 101)
+      self.state = self.PLANNING_ROUTE
 
-    self.state = self.MOVING
-    # wait for service call that uses key
-
-    
   def move(self):
+    self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
+    while abs(self.drone_pose.position.x - self.next_move.x) > .2 or abs(self.drone_pose.position.y - self.next_move.y) > .2:
+      time.sleep(.1)
     pass
 
   # This is the main loop of this class
