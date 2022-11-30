@@ -12,6 +12,7 @@ from geometry_msgs.msg import Vector3, PoseStamped, TwistStamped, Vector3Stamped
 from std_msgs.msg import String, Bool, Float64, Int32
 from sensor_msgs.msg import LaserScan
 from tf2_geometry_msgs import do_transform_point
+from nav_msgs.msg import OccupancyGrid, Path, MapMetaData
 
 from environment_controller.srv import use_key, use_keyResponse, use_keyRequest
 
@@ -47,6 +48,7 @@ class GlobalPlanner():
     self.keys_sub = rospy.Subscriber("/keys_remaining", Int32, self.keys_callback, queue_size=1)
 
     self.position_pub = rospy.Publisher("/uav/input/position", Vector3, queue_size=1)
+    self.map_pub = rospy.Publisher("/map", OccupancyGrid, queue_size=1)
 
     # self.use_key_service = rospy.Service('use_key', use_key, self.use_key_function)
 
@@ -139,10 +141,11 @@ class GlobalPlanner():
 
   def move(self):
     print("Moving to " + str(self.next_move.x) + ", " + str(self.next_move.y))
-    self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
+    # self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
     print("Current position: " + str(self.drone_pose.position.x) + ", " + str(self.drone_pose.position.y))
     if abs(self.drone_pose.position.x - self.next_move.x) < .1 and abs(self.drone_pose.position.y - self.next_move.y) < .1:
-      self.state = self.PLANNING_ROUTE
+      # self.state = self.PLANNING_ROUTE
+      pass
 
   # This is the main loop of this class
   def MainLoop(self):
@@ -165,6 +168,9 @@ class GlobalPlanner():
       # print("main loop")
 
       # always updating grid with callback - both for occupancy grid and for detecting doors
+      self.grid_lock.acquire()
+      self.map_pub.publish(self.grid.get_grid_to_publish())
+      self.grid_lock.release()
 
       if self.state == self.LOCATING_DOG:
         continue

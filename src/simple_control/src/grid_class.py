@@ -1,7 +1,9 @@
 import math
 import copy
+import numpy as np
 from tf.transformations import euler_from_quaternion
-from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Vector3, Pose, Point
+from nav_msgs.msg import OccupancyGrid, Path, MapMetaData
 
 class MismatchedLengthsError(Exception):
     """Raised when you attempt to find the distance between two points of different dimensions"""
@@ -234,6 +236,35 @@ class Grid:
                 grid_string += " "
             grid_string = grid_string + "\n"
         print(grid_string)
+    
+    def get_grid_to_publish(self):
+        m = MapMetaData()
+        m.width = self.width
+        m.height = self.height
+        m.resolution = 1
+        pos = np.array([-self.width * m.resolution / 2 + .5, -self.height * m.resolution / 2 + .5, 0])
+        m.origin = Pose()
+        m.origin.position.x, m.origin.position.y = pos[:2]
+        og = OccupancyGrid()
+        og.info = m
+        data = []
+        for row in self.grid[::-1]:
+            r = []
+            for cell in row:
+                r.append(100 if cell == -4 else cell)
+            data.append(r)
+        
+        data2 = [[None] * self.width for _ in range(self.height)]
+        for y in range(self.height):
+            for x in range(self.width):
+                data2[y][x] = data[x][y] - .5
+        
+        data3 = []
+        for row in data2:
+            for cell in row:
+                data3.append(cell)
+        og.data = data3
+        return og
         
 if __name__ == "__main__":
     grid = Grid(11, 11)
