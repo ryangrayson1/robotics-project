@@ -17,7 +17,7 @@ class Grid:
         self.current_measures = None
         self.times_diff_measured = [[0] * width for _ in range(height)]
         self.average_diffs = [[0] * width for _ in range(height)]
-        self.free_threshold = 50
+        self.free_threshold = 60
         self.door_threshold = 0.04
     
     # assumes fully raw position as input, such as from the dog position
@@ -44,12 +44,12 @@ class Grid:
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
-            return self.grid[y][x] <= self.free_threshold
+            return -3 <= self.grid[y][x] <= self.free_threshold
         return False
 
-    def is_door(self, x, y):
-        return True
-        return -2 <= self.grid[y][x] <= -1
+    def is_closed_door(self, x, y):
+        # return True
+        return self.grid[y][x] == -1
 
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
@@ -110,9 +110,9 @@ class Grid:
                     self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
                         / (self.times_diff_measured[grid_y][grid_x] + 1))
 
-                    if self.grid[grid_y][grid_x] >= 0 and self.average_diffs[grid_y][grid_x] > self.door_threshold:
+                    if self.grid[grid_y][grid_x] >= 0 and self.average_diffs[grid_y][grid_x] > self.door_threshold and self.grid[grid_y][grid_x] != -4:
                         self.grid[grid_y][grid_x] = -1
-                    elif self.grid[grid_y][grid_x] < 0 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
+                    elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
                         self.grid[grid_y][grid_x] = 100
 
                     self.times_diff_measured[grid_y][grid_x] += 1
@@ -204,14 +204,20 @@ class Grid:
                     grid_string = grid_string + "O"
                 elif self.grid[i][j] == -3:
                     grid_string = grid_string + "T"
-                elif self.grid[i][j] > 50:
+                elif self.grid[i][j] == -4:
+                    grid_string = grid_string + "W"
+                elif self.grid[i][j] > self.free_threshold:
                     grid_string = grid_string + "#"
-                elif self.grid[i][j] < 50:
+                elif self.grid[i][j] < self.free_threshold:
                     grid_string = grid_string + " "
                 else:
                     grid_string = grid_string + "-"
             grid_string = grid_string + "\n"
         print(grid_string)
+    
+    def print_grid_raw(self):
+        for row in self.grid:
+            print(row)
 
     def print_average_diffs(self):
         grid_string = "  "

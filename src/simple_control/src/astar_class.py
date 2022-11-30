@@ -65,4 +65,5 @@ class AStar:
       print("No path found")
       return None
 
-    return self.grid.grid_to_world(path[1])
+    print("next move (grid coords): " + str(path[1][0]) + ", " + str(path[1][1]))
+    return path[1]
