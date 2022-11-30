@@ -41,6 +41,8 @@ class GlobalPlanner():
     self.dog_pos = Vector3()
     self.next_move = Point()
 
+    self.initial_updates = 0
+
     # subscribers
     self.tower_pos_sub = rospy.Subscriber("/cell_tower/position", Vector3, self.tower_pos_callback, queue_size=1)
     self.lidar_sub = rospy.Subscriber("/uav/sensors/lidar", LaserScan, self.lidar_callback, queue_size=1)
@@ -74,15 +76,17 @@ class GlobalPlanner():
         dog_x, dog_y = self.grid.world_to_grid(self.dog_pos)
         self.grid.set_cell(dog_x, dog_y, -3)
         print("dog pos:", self.dog_pos)
+        self.initial_updates = self.grid.updates
         self.state = self.PLANNING_ROUTE
       except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
         print('tf2 exception, continuing')
 
   def lidar_callback(self, msg):
-    self.lidar_reading = msg
-    self.grid_lock.acquire()
-    self.grid.update(self.drone_pose, msg)
-    self.grid_lock.release()
+    if self.state != self.MOVING:
+      self.lidar_reading = msg
+      self.grid_lock.acquire()
+      self.grid.update(self.drone_pose, msg)
+      self.grid_lock.release()
 
   def drone_pose_callback(self, msg):
     # print("drone pos callback")
@@ -92,29 +96,31 @@ class GlobalPlanner():
     self.keys_left = msg.data
 
   def plan_route(self):
-    time.sleep(2)
+    # time.sleep(2)
     # here assume we are at the center of a square, and that we have sufficient lidar data for occupancy grid
     # run A* with occupancy grid, get back just the next step
 
     # check if next step is a door, if so change state to opening door
     # else publish to position topic to take the step, set state to moving
-    self.grid_lock.acquire()
-    try:
-      grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
-      world_x, world_y = self.grid.grid_to_world((grid_x, grid_y))
-      self.next_move = Point(world_x + .5, world_y + .5, 3.0)
-      print("next move (world coords): " + str(self.next_move.x) + ", " + str(self.next_move.y))
-      print(type(grid_x))
-      print(type(grid_y))
-      if self.grid.is_closed_door(grid_x, grid_y):
-        self.state = self.OPENING_DOOR
-      else:
-        print("Transitioning to MOVING state")
-        self.state = self.MOVING
 
-    except:
-      rospy.signal_shutdown("error while planning route")
-    self.grid_lock.release()
+    if self.grid.updates - self.initial_updates > 10:
+      self.grid_lock.acquire()
+      try:
+        grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+        world_x, world_y = self.grid.grid_to_world((grid_x, grid_y))
+        self.next_move = Point(world_x + .5, world_y + .5, 3.0)
+        print("next move (world coords): " + str(self.next_move.x) + ", " + str(self.next_move.y))
+        print(type(grid_x))
+        print(type(grid_y))
+        if self.grid.is_closed_door(grid_x, grid_y):
+          self.state = self.OPENING_DOOR
+        else:
+          print("Transitioning to MOVING state")
+          self.state = self.MOVING
+
+      except:
+        rospy.signal_shutdown("error while planning route")
+      self.grid_lock.release()
 
 
   def open_door(self):
@@ -129,6 +135,7 @@ class GlobalPlanner():
     else:
       print("door not opened")
       self.grid.set_cell(grid_x, grid_y, -4)
+      self.initial_updates = self.grid.updates
       self.state = self.PLANNING_ROUTE
 
   def move(self):
@@ -136,6 +143,7 @@ class GlobalPlanner():
     self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
     print("Current position: " + str(self.drone_pose.position.x) + ", " + str(self.drone_pose.position.y))
     if abs(self.drone_pose.position.x - self.next_move.x) < .1 and abs(self.drone_pose.position.y - self.next_move.y) < .1:
+      self.initial_updates = self.grid.updates
       self.state = self.PLANNING_ROUTE
       pass
 

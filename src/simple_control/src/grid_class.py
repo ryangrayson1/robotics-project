@@ -19,7 +19,7 @@ class Grid:
         self.current_measures = None
         self.times_diff_measured = [[0] * width for _ in range(height)]
         self.average_diffs = [[0] * width for _ in range(height)]
-        self.free_threshold = 90
+        self.free_threshold = 50
         self.door_threshold = 0.04
     
     # assumes fully raw position as input, such as from the dog position
@@ -104,13 +104,14 @@ class Grid:
             if black_cell:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
-                if (self.grid[grid_y][grid_x] >= 0):
+                if (self.grid[grid_y][grid_x] > 0):
                     self.grid[grid_y][grid_x] += 5
                     self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
                 # Door detection logic
                 # Observe and record the average difference in distance between this measurement and the previous measurement of the same tile.
                 if self.last_measures[grid_y][grid_x] and self.last_measures[grid_y][grid_x][i]:
+                    # relative_position = x2 - 
                     diff = abs(self.last_measures[grid_y][grid_x][i] - lidar_reading.ranges[i])
                     self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
                         / (self.times_diff_measured[grid_y][grid_x] + 1))
