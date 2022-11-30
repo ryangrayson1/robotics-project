@@ -19,7 +19,7 @@ class Grid:
         self.current_measures = None
         self.times_diff_measured = [[0] * width for _ in range(height)]
         self.average_diffs = [[0] * width for _ in range(height)]
-        self.free_threshold = 60
+        self.free_threshold = 90
         self.door_threshold = 0.04
     
     # assumes fully raw position as input, such as from the dog position
@@ -42,7 +42,9 @@ class Grid:
         return world_x, world_y
     
     def set_cell(self, x, y, val):
+        print("Called set_cell() with " + str(x) + " " + str(y) + " and value " + str(val))
         self.grid[y][x] = val
+        print(self.grid[5][6])
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
@@ -94,8 +96,9 @@ class Grid:
             for white_cell in white_cells:
                 grid_x = int(math.floor(self.width / 2)) + white_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - white_cell[1]
-                self.grid[grid_y][grid_x] -= 5
-                self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
+                if self.grid[grid_y][grid_x] > 0:
+                    self.grid[grid_y][grid_x] -= 5
+                    self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
             # mark the black cell as black (make it blacker)
             if black_cell:
@@ -112,7 +115,11 @@ class Grid:
                     self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
                         / (self.times_diff_measured[grid_y][grid_x] + 1))
 
-                    if self.grid[grid_y][grid_x] >= 0 and self.average_diffs[grid_y][grid_x] > self.door_threshold and self.grid[grid_y][grid_x] != -4:
+                    if (self.grid[grid_y][grid_x] >= 0 
+                        and self.average_diffs[grid_y][grid_x] > self.door_threshold 
+                        and self.grid[grid_y][grid_x] != -4
+                        and self.grid[grid_y][grid_x] != -2
+                        and self.times_diff_measured >= 10):
                         self.grid[grid_y][grid_x] = -1
                     elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
                         self.grid[grid_y][grid_x] = 100
@@ -196,31 +203,6 @@ class Grid:
 
         return traversed
 
-    def print_grid(self):
-        grid_string = ""
-        for i in range(len(self.grid)):
-            for j in range(len(self.grid[0])):
-                if self.grid[i][j] == -1:
-                    grid_string = grid_string + "D"
-                elif self.grid[i][j] == -2:
-                    grid_string = grid_string + "O"
-                elif self.grid[i][j] == -3:
-                    grid_string = grid_string + "T"
-                elif self.grid[i][j] == -4:
-                    grid_string = grid_string + "W"
-                elif self.grid[i][j] > self.free_threshold:
-                    grid_string = grid_string + "#"
-                elif self.grid[i][j] < self.free_threshold:
-                    grid_string = grid_string + " "
-                else:
-                    grid_string = grid_string + "-"
-            grid_string = grid_string + "\n"
-        print(grid_string)
-    
-    def print_grid_raw(self):
-        for row in self.grid:
-            print(row)
-
     def print_average_diffs(self):
         grid_string = "  "
         for i in range(len(self.average_diffs[1])):
@@ -265,6 +247,11 @@ class Grid:
                 data3.append(cell)
         og.data = data3
         return og
+    
+    def get_shortest_path(self, dog_pos):
+        start_x, start_y = self.grid.world_to_grid(Point(0, 0, 3))
+        dog_x, dog_y = self.grid.world_to_grid(dog_pos)
+        pass
         
 if __name__ == "__main__":
     grid = Grid(11, 11)

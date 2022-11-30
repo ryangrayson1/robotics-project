@@ -84,10 +84,6 @@ class GlobalPlanner():
     self.grid.update(self.drone_pose, msg)
     self.grid_lock.release()
 
-    # if self.grid.updates == 20:
-    #   self.grid.print_grid()
-    #   rospy.signal_shutdown("test")
-
   def drone_pose_callback(self, msg):
     # print("drone pos callback")
     self.drone_pose = msg.pose
@@ -96,7 +92,7 @@ class GlobalPlanner():
     self.keys_left = msg.data
 
   def plan_route(self):
-    time.sleep(1)
+    time.sleep(2)
     # here assume we are at the center of a square, and that we have sufficient lidar data for occupancy grid
     # run A* with occupancy grid, get back just the next step
 
@@ -104,8 +100,6 @@ class GlobalPlanner():
     # else publish to position topic to take the step, set state to moving
     self.grid_lock.acquire()
     try:
-      self.grid.print_grid()
-      self.grid.print_grid_raw()
       grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
       world_x, world_y = self.grid.grid_to_world((grid_x, grid_y))
       self.next_move = Point(world_x + .5, world_y + .5, 3.0)
@@ -119,8 +113,6 @@ class GlobalPlanner():
         self.state = self.MOVING
 
     except:
-      self.grid.print_grid()
-      self.grid.print_grid_raw()
       rospy.signal_shutdown("error while planning route")
     self.grid_lock.release()
 
@@ -141,10 +133,10 @@ class GlobalPlanner():
 
   def move(self):
     print("Moving to " + str(self.next_move.x) + ", " + str(self.next_move.y))
-    # self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
+    self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
     print("Current position: " + str(self.drone_pose.position.x) + ", " + str(self.drone_pose.position.y))
     if abs(self.drone_pose.position.x - self.next_move.x) < .1 and abs(self.drone_pose.position.y - self.next_move.y) < .1:
-      # self.state = self.PLANNING_ROUTE
+      self.state = self.PLANNING_ROUTE
       pass
 
   # This is the main loop of this class
@@ -165,6 +157,7 @@ class GlobalPlanner():
     # return
 
     while not rospy.is_shutdown():
+      print("THE CELL: " + str(self.grid.grid[5][6]))
       # print("main loop")
 
       # always updating grid with callback - both for occupancy grid and for detecting doors
@@ -185,6 +178,7 @@ class GlobalPlanner():
         # maybe add some abort functionality here if close to a wall
         self.move()
         # if position matches dog position here, publish shortest path and grid and stop
+        # shortest_path = self.grid.get_shortest_path(self.dog_pos)
 
 
       rate.sleep()

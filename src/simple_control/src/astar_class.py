@@ -18,6 +18,11 @@ class AStar:
   def get_next_move(self, drone_pos, dog_pos):
     
     drone_x, drone_y = self.grid.world_to_grid(drone_pos)
+
+    for ix, iy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
+      if self.grid.is_closed_door(drone_x + ix, drone_y + iy):
+        return drone_x + ix, drone_y + iy
+
     dog_x, dog_y = self.grid.world_to_grid(dog_pos)
     print("Running A*")
     print("drone:", drone_x, drone_y)
