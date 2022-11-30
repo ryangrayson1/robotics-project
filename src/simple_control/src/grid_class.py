@@ -7,8 +7,6 @@ class MismatchedLengthsError(Exception):
     """Raised when you attempt to find the distance between two points of different dimensions"""
     pass
 
-FREE_THRESHOLD = 50
-
 class Grid:
     def __init__(self, width, height):
         self.updates = 0
@@ -19,6 +17,8 @@ class Grid:
         self.current_measures = None
         self.times_diff_measured = [[0] * width for _ in range(height)]
         self.average_diffs = [[0] * width for _ in range(height)]
+        self.free_threshold = 50
+        self.door_threshold = 0.04
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
@@ -44,7 +44,7 @@ class Grid:
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
-            return self.grid[y][x] <= FREE_THRESHOLD
+            return self.grid[y][x] <= self.free_threshold
         return False
 
     def is_door(self, x, y):
@@ -99,20 +99,27 @@ class Grid:
             if black_cell:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
-                self.grid[grid_y][grid_x] += 5
-                self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
+                if (self.grid[grid_y][grid_x] >= 0):
+                    self.grid[grid_y][grid_x] += 5
+                    self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
                 # Door detection logic
                 # Observe and record the average difference in distance between this measurement and the previous measurement of the same tile.
-                if self.last_measures[grid_y][grid_x] and self.current_measures[grid_y][grid_x] is None:
-                    diff = abs(self.last_measures[grid_y][grid_x] - lidar_reading.ranges[i])
+                if self.last_measures[grid_y][grid_x] and self.last_measures[grid_y][grid_x][i]:
+                    diff = abs(self.last_measures[grid_y][grid_x][i] - lidar_reading.ranges[i])
                     self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
                         / (self.times_diff_measured[grid_y][grid_x] + 1))
+
+                    if self.grid[grid_y][grid_x] >= 0 and self.average_diffs[grid_y][grid_x] > self.door_threshold:
+                        self.grid[grid_y][grid_x] = -1
+                    elif self.grid[grid_y][grid_x] < 0 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
+                        self.grid[grid_y][grid_x] = 100
 
                     self.times_diff_measured[grid_y][grid_x] += 1
                 
                 if self.current_measures[grid_y][grid_x] is None:
-                    self.current_measures[grid_y][grid_x] = lidar_reading.ranges[i]
+                    self.current_measures[grid_y][grid_x] = [None] * len(lidar_reading.ranges)
+                self.current_measures[grid_y][grid_x][i] = lidar_reading.ranges[i]
 
             # print("Finished update!")
             # print("Drone position:  " + str(drone_pose.position))
@@ -191,7 +198,11 @@ class Grid:
         grid_string = ""
         for i in range(len(self.grid)):
             for j in range(len(self.grid[0])):
-                if self.grid[i][j] == -3:
+                if self.grid[i][j] == -1:
+                    grid_string = grid_string + "D"
+                elif self.grid[i][j] == -2:
+                    grid_string = grid_string + "O"
+                elif self.grid[i][j] == -3:
                     grid_string = grid_string + "T"
                 elif self.grid[i][j] > 50:
                     grid_string = grid_string + "#"
@@ -210,7 +221,10 @@ class Grid:
         for i in range(len(self.average_diffs)):
             grid_string += str(i) + " "
             for j in range(len(self.average_diffs[1])):
-                grid_string += "{:.2f}".format(self.average_diffs[i][j])
+                if self.grid[i][j] > self.free_threshold:
+                    grid_string += "{:.2f}".format(self.average_diffs[i][j])
+                else:
+                    grid_string += "----"
                 grid_string += " "
             grid_string = grid_string + "\n"
         print(grid_string)
