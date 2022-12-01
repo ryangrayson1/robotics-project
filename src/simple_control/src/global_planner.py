@@ -94,27 +94,26 @@ class GlobalPlanner():
     self.keys_left = msg.data
 
   def plan_route(self):
-    # time.sleep(2)
     # here assume we are at the center of a square, and that we have sufficient lidar data for occupancy grid
     # run A* with occupancy grid, get back just the next step
 
     # check if next step is a door, if so change state to opening door
     # else publish to position topic to take the step, set state to moving
 
-    # if self.grid.updates - self.initial_updates > 100:
-    self.grid_lock.acquire()
-    try:
-      grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
-      world_x, world_y = self.grid.grid_to_world((grid_x, grid_y))
-      self.next_move = Point(world_x + .5, world_y + .5, 3.0)
-      if self.grid.is_closed_door(grid_x, grid_y):
-        self.state = self.OPENING_DOOR
-      else:
-        self.state = self.MOVING
+    if self.grid.updates > 60:
+      self.grid_lock.acquire()
+      try:
+        grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+        world_x, world_y = self.grid.grid_to_world((grid_x, grid_y))
+        self.next_move = Point(world_x + .5, world_y + .5, 3.0)
+        if self.grid.is_closed_door(grid_x, grid_y):
+          self.state = self.OPENING_DOOR
+        else:
+          self.state = self.MOVING
 
-    except:
-      rospy.signal_shutdown("error while planning route")
-    self.grid_lock.release()
+      except:
+        rospy.signal_shutdown("error while planning route")
+      self.grid_lock.release()
 
 
   def open_door(self):
