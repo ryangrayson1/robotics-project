@@ -92,15 +92,15 @@ class Grid:
                 grid_x = int(math.floor(self.width / 2)) + white_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - white_cell[1]
                 if self.grid[grid_y][grid_x] >= 0:
-                    self.grid[grid_y][grid_x] -= 1
+                    self.grid[grid_y][grid_x] -= 3
                     self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
             # mark the black cell as black (make it blacker)
             if black_cell:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
-                if (self.grid[grid_y][grid_x] > 0):
-                    self.grid[grid_y][grid_x] += 1
+                if (self.grid[grid_y][grid_x] >= 0):
+                    self.grid[grid_y][grid_x] += 3
                     self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
                 # Door detection logic
@@ -115,7 +115,7 @@ class Grid:
                         and self.average_diffs[grid_y][grid_x] > self.door_threshold 
                         and self.grid[grid_y][grid_x] != -4
                         and self.grid[grid_y][grid_x] != -2
-                        and self.times_diff_measured >= 10):
+                        and self.times_diff_measured[grid_y][grid_x] >= 10):
                         self.grid[grid_y][grid_x] = -1
                     elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
                         self.grid[grid_y][grid_x] = 100
@@ -162,7 +162,7 @@ class Grid:
         targetCell = {"x": int(math.floor(B[0])), "y": int(math.floor(B[1]))}
 
         traversed = [(currentCell["x"], currentCell["y"], 0)]
-        intersect = (0, 0)
+        intersect = (A[0], A[1])
 
         calcIntersectionDistanceX = lambda: abs(dy * (currentCell["x"] + direction_modifier_x - A[0]))
         calcIntersectionDistanceY = lambda: abs(dx * (currentCell["y"] + direction_modifier_y - A[1]))
