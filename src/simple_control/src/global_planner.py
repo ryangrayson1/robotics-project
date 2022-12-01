@@ -12,6 +12,7 @@ from geometry_msgs.msg import Vector3, PoseStamped, TwistStamped, Vector3Stamped
 from std_msgs.msg import String, Bool, Float64, Int32
 from sensor_msgs.msg import LaserScan
 from tf2_geometry_msgs import do_transform_point
+from nav_msgs.msg import OccupancyGrid, Path, MapMetaData
 
 from environment_controller.srv import use_key, use_keyResponse, use_keyRequest
 
@@ -38,12 +39,18 @@ class GlobalPlanner():
     self.lidar_reading = LaserScan()
     self.drone_pose = PoseStamped()
     self.dog_pos = Vector3()
+    self.next_move = Point()
+
+    self.initial_updates = 0
 
     # subscribers
     self.tower_pos_sub = rospy.Subscriber("/cell_tower/position", Vector3, self.tower_pos_callback, queue_size=1)
     self.lidar_sub = rospy.Subscriber("/uav/sensors/lidar", LaserScan, self.lidar_callback, queue_size=1)
     self.drone_pose_sub = rospy.Subscriber("/uav/sensors/gps", PoseStamped, self.drone_pose_callback, queue_size=1)
     self.keys_sub = rospy.Subscriber("/keys_remaining", Int32, self.keys_callback, queue_size=1)
+
+    self.position_pub = rospy.Publisher("/uav/input/position", Vector3, queue_size=1)
+    self.map_pub = rospy.Publisher("/map", OccupancyGrid, queue_size=1)
 
     # self.use_key_service = rospy.Service('use_key', use_key, self.use_key_function)
 
@@ -64,87 +71,83 @@ class GlobalPlanner():
         point.point.y = msg.y
         point.point.z = msg.z
         new_point = do_transform_point(point, transform)
-
+        
         self.dog_pos = Vector3(new_point.point.x, new_point.point.y, new_point.point.z)
         dog_x, dog_y = self.grid.world_to_grid(self.dog_pos)
         self.grid.set_cell(dog_x, dog_y, -3)
-        print("dog pos:", self.dog_pos)
+        self.initial_updates = self.grid.updates
         self.state = self.PLANNING_ROUTE
       except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
         print('tf2 exception, continuing')
 
   def lidar_callback(self, msg):
+    # if self.state != self.MOVING:
     self.lidar_reading = msg
     self.grid_lock.acquire()
     self.grid.update(self.drone_pose, msg)
     self.grid_lock.release()
 
-    if self.grid.updates == 20:
-      self.grid.print_grid()
-      rospy.signal_shutdown("test")
-
   def drone_pose_callback(self, msg):
-    # print("drone pos callback")
     self.drone_pose = msg.pose
   
   def keys_callback(self, msg):
     self.keys_left = msg.data
 
   def plan_route(self):
+    # time.sleep(2)
     # here assume we are at the center of a square, and that we have sufficient lidar data for occupancy grid
     # run A* with occupancy grid, get back just the next step
 
     # check if next step is a door, if so change state to opening door
     # else publish to position topic to take the step, set state to moving
+
+    # if self.grid.updates - self.initial_updates > 100:
     self.grid_lock.acquire()
     try:
-      self.grid.print_grid()
       grid_x, grid_y = self.astar.get_next_move(self.drone_pose.position, self.dog_pos)
+      world_x, world_y = self.grid.grid_to_world((grid_x, grid_y))
+      self.next_move = Point(world_x + .5, world_y + .5, 3.0)
+      if self.grid.is_closed_door(grid_x, grid_y):
+        self.state = self.OPENING_DOOR
+      else:
+        self.state = self.MOVING
+
     except:
-      self.grid.print_grid()
-      rospy.signal_shutdown("test")
+      rospy.signal_shutdown("error while planning route")
     self.grid_lock.release()
-    print("next move:", grid_x, grid_y)
-    # self.next_move = Point(world_x, world_y, 3.0)
+
 
   def open_door(self):
-    if self.grid.is_door(self.next_move.x, self.next_move.y):
-      rospy.wait_for_service('use_key')
-      use_key_function = rospy.ServiceProxy('use_key', use_key)
-      res = use_key_function(self.next_move)
-      if res.success:
-        print("door opened")
-      else:
-        print("door not opened")
+    rospy.wait_for_service('use_key')
+    use_key_function = rospy.ServiceProxy('use_key', use_key)
+    res = use_key_function(self.next_move)
+    grid_x, grid_y = self.grid.world_to_grid(self.next_move)
+    if res.success:
+      self.grid.set_cell(grid_x, grid_y, -2)
+      self.state = self.MOVING
+    else:
+      self.grid.set_cell(grid_x, grid_y, -4)
+      self.initial_updates = self.grid.updates
+      self.state = self.PLANNING_ROUTE
 
-    self.state = self.MOVING
-    # wait for service call that uses key
-
-    
   def move(self):
-    pass
+    self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
+    if abs(self.drone_pose.position.x - self.next_move.x) < .1 and abs(self.drone_pose.position.y - self.next_move.y) < .1:
+      self.initial_updates = self.grid.updates
+      self.state = self.PLANNING_ROUTE
+      pass
 
   # This is the main loop of this class
   def MainLoop(self):
 
     rate = rospy.Rate(self.rate)
 
-    # DOOR CHECKPOINT - use w = 11, h = 11, seed = 6
-    # print("initial keys: " + str(self.keys_left))
-    # self.next_move = Point(0, 1, 3.0) # a door
-    # self.open_door()
-    # time.sleep(1)
-    # print("keys after use_key call 1: " + str(self.keys_left))
-    # self.next_move = Point(1, 0, 3.0) # not a door
-    # self.open_door()
-    # time.sleep(1)
-    # print("keys after use_key call 2: " + str(self.keys_left))
-    # return
-
     while not rospy.is_shutdown():
-      # print("main loop")
 
       # always updating grid with callback - both for occupancy grid and for detecting doors
+      self.grid_lock.acquire()
+      self.map_pub.publish(self.grid.get_grid_to_publish())
+      self.grid_lock.release()
 
       if self.state == self.LOCATING_DOG:
         continue
@@ -157,7 +160,9 @@ class GlobalPlanner():
         
       elif self.state == self.MOVING:
         # maybe add some abort functionality here if close to a wall
-        pass
+        self.move()
+        # if position matches dog position here, publish shortest path and grid and stop
+        # shortest_path = self.grid.get_shortest_path(self.dog_pos)
 
 
       rate.sleep()

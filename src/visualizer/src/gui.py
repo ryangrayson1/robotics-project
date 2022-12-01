@@ -107,7 +107,6 @@ class GUI():
 
         try:
             if 'lidar' in self.world and len(self.world['lidar']) > 0:
-                # print(self.world['lidar'])
                 if self.lidar_line is None:
                     self.lidar_line, = self.ax.plot(self.world['lidar'][:, 0], self.world['lidar'][:, 1],
                                                     marker=".",

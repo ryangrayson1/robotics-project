@@ -18,11 +18,12 @@ class AStar:
   def get_next_move(self, drone_pos, dog_pos):
     
     drone_x, drone_y = self.grid.world_to_grid(drone_pos)
+
+    for ix, iy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
+      if self.grid.is_closed_door(drone_x + ix, drone_y + iy):
+        return drone_x + ix, drone_y + iy
+
     dog_x, dog_y = self.grid.world_to_grid(dog_pos)
-    print("Running A*")
-    print("drone:", drone_x, drone_y)
-    print("dog:", dog_x, dog_y)
-    print()
 
     pq = [(0, drone_x, drone_y)]
     cost_so_far = {(drone_x, drone_y): 0}
@@ -59,10 +60,9 @@ class AStar:
       path.append(cur)
       
     path.reverse()
-    print(path)
 
     if len(path) < 2 or path[0] != (drone_x, drone_y) or path[-1] != (dog_x, dog_y):
       print("No path found")
       return None
 
-    return self.grid.grid_to_world(path[1])
+    return path[1]

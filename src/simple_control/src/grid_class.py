@@ -1,7 +1,9 @@
 import math
 import copy
+import numpy as np
 from tf.transformations import euler_from_quaternion
-from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Vector3, Pose, Point
+from nav_msgs.msg import OccupancyGrid, Path, MapMetaData
 
 class MismatchedLengthsError(Exception):
     """Raised when you attempt to find the distance between two points of different dimensions"""
@@ -22,13 +24,10 @@ class Grid:
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
-        print(world_pos)
-        world_x_shifted = world_pos.x + 0.50001
-        world_y_shifted = world_pos.y + 0.50001
-        grid_x = int(self.width // 2) + int(world_x_shifted)
-        grid_y = int(self.height // 2) - int(world_y_shifted)
-        print("wtg")
-        print(grid_x, grid_y)
+        world_x_shifted = round(world_pos.x + 0.5, 4)
+        world_y_shifted = round(world_pos.y + 0.5, 4)
+        grid_x = int(self.width / 2) + int(math.floor(world_x_shifted))
+        grid_y = int(self.height / 2) - int(math.floor(world_y_shifted))
         return grid_x, grid_y
     
     # assumes integer input coordinates like those returned from world_to_grid
@@ -44,12 +43,12 @@ class Grid:
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
-            return self.grid[y][x] <= self.free_threshold
+            return -3 <= self.grid[y][x] <= self.free_threshold
         return False
 
-    def is_door(self, x, y):
-        return True
-        return -2 <= self.grid[y][x] <= -1
+    def is_closed_door(self, x, y):
+        # return True
+        return self.grid[y][x] == -1
 
     def update(self, drone_pose, lidar_reading):
         inc = lidar_reading.angle_increment
@@ -58,8 +57,8 @@ class Grid:
         for i in range(len(lidar_reading.ranges)):
             x1 = drone_pose.position.x
             y1 = drone_pose.position.y
-            x2 = lidar_reading.range_max * math.cos(cur_angle)
-            y2 = lidar_reading.range_max * math.sin(cur_angle)
+            x2 = x1 + lidar_reading.range_max * math.cos(cur_angle)
+            y2 = y1 + lidar_reading.range_max * math.sin(cur_angle)
 
             # shift each set of coords half a cell up and to the right since drone is starting in the middle of a cell
             # at (0, 0), but we want coordinates to indicate the bottom right of a cell.
@@ -92,27 +91,33 @@ class Grid:
             for white_cell in white_cells:
                 grid_x = int(math.floor(self.width / 2)) + white_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - white_cell[1]
-                self.grid[grid_y][grid_x] -= 5
-                self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
+                if self.grid[grid_y][grid_x] >= 0:
+                    self.grid[grid_y][grid_x] -= 1
+                    self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
             # mark the black cell as black (make it blacker)
             if black_cell:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
-                if (self.grid[grid_y][grid_x] >= 0):
-                    self.grid[grid_y][grid_x] += 5
+                if (self.grid[grid_y][grid_x] > 0):
+                    self.grid[grid_y][grid_x] += 1
                     self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
                 # Door detection logic
                 # Observe and record the average difference in distance between this measurement and the previous measurement of the same tile.
                 if self.last_measures[grid_y][grid_x] and self.last_measures[grid_y][grid_x][i]:
+                    # relative_position = x2 - 
                     diff = abs(self.last_measures[grid_y][grid_x][i] - lidar_reading.ranges[i])
                     self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
                         / (self.times_diff_measured[grid_y][grid_x] + 1))
 
-                    if self.grid[grid_y][grid_x] >= 0 and self.average_diffs[grid_y][grid_x] > self.door_threshold:
+                    if (self.grid[grid_y][grid_x] >= self.free_threshold 
+                        and self.average_diffs[grid_y][grid_x] > self.door_threshold 
+                        and self.grid[grid_y][grid_x] != -4
+                        and self.grid[grid_y][grid_x] != -2
+                        and self.times_diff_measured >= 10):
                         self.grid[grid_y][grid_x] = -1
-                    elif self.grid[grid_y][grid_x] < 0 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
+                    elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
                         self.grid[grid_y][grid_x] = 100
 
                     self.times_diff_measured[grid_y][grid_x] += 1
@@ -120,17 +125,6 @@ class Grid:
                 if self.current_measures[grid_y][grid_x] is None:
                     self.current_measures[grid_y][grid_x] = [None] * len(lidar_reading.ranges)
                 self.current_measures[grid_y][grid_x][i] = lidar_reading.ranges[i]
-
-            # print("Finished update!")
-            # print("Drone position:  " + str(drone_pose.position))
-            # print("Drone angle:     " + str(euler_angles[2] * 57.2958))
-            # print("Angle min:       " + str(lidar_reading.angle_min * 57.2958))
-            # print("Cur angle:       " + str(cur_angle * 57.2958))
-            # print("Lidar distance:  " + str(lidar_reading.ranges[i]))
-            # print("Cells crossed:   " + str(cells_crossed))
-            # print("White cells:     " + str(white_cells))
-            # print("Black cell:      " + str(black_cell))
-            # self.print_grid()
 
             cur_angle += inc
         
@@ -194,25 +188,6 @@ class Grid:
 
         return traversed
 
-    def print_grid(self):
-        grid_string = ""
-        for i in range(len(self.grid)):
-            for j in range(len(self.grid[0])):
-                if self.grid[i][j] == -1:
-                    grid_string = grid_string + "D"
-                elif self.grid[i][j] == -2:
-                    grid_string = grid_string + "O"
-                elif self.grid[i][j] == -3:
-                    grid_string = grid_string + "T"
-                elif self.grid[i][j] > 50:
-                    grid_string = grid_string + "#"
-                elif self.grid[i][j] < 50:
-                    grid_string = grid_string + " "
-                else:
-                    grid_string = grid_string + "-"
-            grid_string = grid_string + "\n"
-        print(grid_string)
-
     def print_average_diffs(self):
         grid_string = "  "
         for i in range(len(self.average_diffs[1])):
@@ -228,9 +203,38 @@ class Grid:
                 grid_string += " "
             grid_string = grid_string + "\n"
         print(grid_string)
+    
+    def get_grid_to_publish(self):
+        m = MapMetaData()
+        m.width = self.width
+        m.height = self.height
+        m.resolution = 1
+        pos = np.array([-self.width * m.resolution / 2 + .5, -self.height * m.resolution / 2 + .5, 0])
+        m.origin = Pose()
+        m.origin.position.x, m.origin.position.y = pos[:2]
+        og = OccupancyGrid()
+        og.info = m
+        data = []
+        for row in self.grid[::-1]:
+            r = []
+            for cell in row:
+                r.append(100 if cell == -4 else cell)
+            data.append(r)
         
-if __name__ == "__main__":
-    grid = Grid(11, 11)
-    # print(grid.raytrace((0.5, 0.5), (1.5, 1.1)))
-    print(grid.world_to_grid(Vector3(3.5, 3.5, 3.0)))
+        data2 = [[None] * self.width for _ in range(self.height)]
+        for y in range(self.height):
+            for x in range(self.width):
+                data2[y][x] = data[x][y] - .5
+        
+        data3 = []
+        for row in data2:
+            for cell in row:
+                data3.append(cell)
+        og.data = data3
+        return og
+    
+    def get_shortest_path(self, dog_pos):
+        start_x, start_y = self.grid.world_to_grid(Point(0, 0, 3))
+        dog_x, dog_y = self.grid.world_to_grid(dog_pos)
+        pass
 
