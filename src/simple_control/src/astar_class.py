@@ -16,7 +16,10 @@ class AStar:
     return neighbors
   
   def get_next_move(self, drone_pos, dog_pos):
-    
+    path = self.get_path(drone_pos, dog_pos)
+    return path[1]
+
+  def get_path(self, drone_pos, dog_pos):
     drone_x, drone_y = self.grid.world_to_grid(drone_pos)
 
     for ix, iy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
@@ -64,5 +67,5 @@ class AStar:
     if len(path) < 2 or path[0] != (drone_x, drone_y) or path[-1] != (dog_x, dog_y):
       print("No path found")
       return None
-
-    return path[1]
+    
+    return path
