@@ -24,13 +24,10 @@ class Grid:
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
-        print(world_pos)
-        world_x_shifted = world_pos.x + 0.50001
-        world_y_shifted = world_pos.y + 0.50001
-        grid_x = int(self.width // 2) + int(world_x_shifted)
-        grid_y = int(self.height // 2) - int(world_y_shifted)
-        print("wtg")
-        print(grid_x, grid_y)
+        world_x_shifted = round(world_pos.x + 0.5, 4)
+        world_y_shifted = round(world_pos.y + 0.5, 4)
+        grid_x = int(self.width / 2) + int(math.floor(world_x_shifted))
+        grid_y = int(self.height / 2) - int(math.floor(world_y_shifted))
         return grid_x, grid_y
     
     # assumes integer input coordinates like those returned from world_to_grid
@@ -42,9 +39,7 @@ class Grid:
         return world_x, world_y
     
     def set_cell(self, x, y, val):
-        print("Called set_cell() with " + str(x) + " " + str(y) + " and value " + str(val))
         self.grid[y][x] = val
-        print(self.grid[5][6])
     
     def can_travel(self, x, y):
         if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
@@ -62,8 +57,8 @@ class Grid:
         for i in range(len(lidar_reading.ranges)):
             x1 = drone_pose.position.x
             y1 = drone_pose.position.y
-            x2 = lidar_reading.range_max * math.cos(cur_angle)
-            y2 = lidar_reading.range_max * math.sin(cur_angle)
+            x2 = x1 + lidar_reading.range_max * math.cos(cur_angle)
+            y2 = y1 + lidar_reading.range_max * math.sin(cur_angle)
 
             # shift each set of coords half a cell up and to the right since drone is starting in the middle of a cell
             # at (0, 0), but we want coordinates to indicate the bottom right of a cell.
@@ -96,8 +91,8 @@ class Grid:
             for white_cell in white_cells:
                 grid_x = int(math.floor(self.width / 2)) + white_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - white_cell[1]
-                if self.grid[grid_y][grid_x] > 0:
-                    self.grid[grid_y][grid_x] -= 5
+                if self.grid[grid_y][grid_x] >= 0:
+                    self.grid[grid_y][grid_x] -= 1
                     self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
             # mark the black cell as black (make it blacker)
@@ -105,7 +100,7 @@ class Grid:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
                 if (self.grid[grid_y][grid_x] > 0):
-                    self.grid[grid_y][grid_x] += 5
+                    self.grid[grid_y][grid_x] += 1
                     self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
                 # Door detection logic
@@ -116,7 +111,7 @@ class Grid:
                     self.average_diffs[grid_y][grid_x] = ((self.average_diffs[grid_y][grid_x] * self.times_diff_measured[grid_y][grid_x] + diff) 
                         / (self.times_diff_measured[grid_y][grid_x] + 1))
 
-                    if (self.grid[grid_y][grid_x] >= 0 
+                    if (self.grid[grid_y][grid_x] >= self.free_threshold 
                         and self.average_diffs[grid_y][grid_x] > self.door_threshold 
                         and self.grid[grid_y][grid_x] != -4
                         and self.grid[grid_y][grid_x] != -2
@@ -130,17 +125,6 @@ class Grid:
                 if self.current_measures[grid_y][grid_x] is None:
                     self.current_measures[grid_y][grid_x] = [None] * len(lidar_reading.ranges)
                 self.current_measures[grid_y][grid_x][i] = lidar_reading.ranges[i]
-
-            # print("Finished update!")
-            # print("Drone position:  " + str(drone_pose.position))
-            # print("Drone angle:     " + str(euler_angles[2] * 57.2958))
-            # print("Angle min:       " + str(lidar_reading.angle_min * 57.2958))
-            # print("Cur angle:       " + str(cur_angle * 57.2958))
-            # print("Lidar distance:  " + str(lidar_reading.ranges[i]))
-            # print("Cells crossed:   " + str(cells_crossed))
-            # print("White cells:     " + str(white_cells))
-            # print("Black cell:      " + str(black_cell))
-            # self.print_grid()
 
             cur_angle += inc
         
@@ -253,9 +237,4 @@ class Grid:
         start_x, start_y = self.grid.world_to_grid(Point(0, 0, 3))
         dog_x, dog_y = self.grid.world_to_grid(dog_pos)
         pass
-        
-if __name__ == "__main__":
-    grid = Grid(11, 11)
-    # print(grid.raytrace((0.5, 0.5), (1.5, 1.1)))
-    print(grid.world_to_grid(Vector3(3.5, 3.5, 3.0)))
 

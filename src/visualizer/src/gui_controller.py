@@ -106,14 +106,10 @@ class GUI_Controller():
 
     def get_laser(self, msg):
         self.lidar = []
-        # print('Drone position', self.position[0], self.position[1])
         for index, range in enumerate(msg.ranges):
             angle = msg.angle_min + index * msg.angle_increment  # - self.yaw
             position = (self.position[0] + range * math.cos(angle),
                         self.position[1] + range * math.sin(angle))
-            # print('angle', angle)
-            # print('range', range)
-            # print('position', position)
             self.lidar.append(position)
         self.lidar = np.array(self.lidar)
 

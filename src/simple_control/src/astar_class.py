@@ -24,10 +24,6 @@ class AStar:
         return drone_x + ix, drone_y + iy
 
     dog_x, dog_y = self.grid.world_to_grid(dog_pos)
-    print("Running A*")
-    print("drone:", drone_x, drone_y)
-    print("dog:", dog_x, dog_y)
-    print()
 
     pq = [(0, drone_x, drone_y)]
     cost_so_far = {(drone_x, drone_y): 0}
@@ -64,11 +60,9 @@ class AStar:
       path.append(cur)
       
     path.reverse()
-    print(path)
 
     if len(path) < 2 or path[0] != (drone_x, drone_y) or path[-1] != (dog_x, dog_y):
       print("No path found")
       return None
 
-    print("next move (grid coords): " + str(path[1][0]) + ", " + str(path[1][1]))
     return path[1]
