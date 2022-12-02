@@ -1,8 +1,10 @@
 import math
 import copy
 import numpy as np
+from collections import deque
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Vector3, Pose, Point
+from std_msgs.msg import Int32MultiArray
 from nav_msgs.msg import OccupancyGrid, Path, MapMetaData
 
 class MismatchedLengthsError(Exception):
@@ -234,7 +236,30 @@ class Grid:
         return og
     
     def get_shortest_path(self, dog_pos):
-        start_x, start_y = self.grid.world_to_grid(Point(0, 0, 3))
-        dog_x, dog_y = self.grid.world_to_grid(dog_pos)
-        pass
+        start_x, start_y = self.width // 2, self.height // 2
+        dog_x, dog_y = self.world_to_grid(dog_pos)
+        came_from = {(start_x, start_y): None}
+        q = deque([(start_x, start_y)])
+        while q:
+            x, y = q.popleft()
+            if x == dog_x and y == dog_y:
+                break
+            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                nxt_x, nxt_y = x + dx, y + dy
+                if (nxt_x, nxt_y) not in came_from and self.can_travel(nxt_x, nxt_y):
+                    came_from[(nxt_x, nxt_y)] = (x, y)
+                    q.append((nxt_x, nxt_y))
+        
+        path = [(dog_x, dog_y)]
+        while path[-1] != (start_x, start_y):
+            path.append(came_from[path[-1]])
+        path.reverse()
+        for i, (x, y) in enumerate(path):
+            gx, gy = self.grid_to_world((x, y))
+            path[i] = (int(gx + .51), int(gy + .51))
 
+        print("shortest path (world coords):\n", path)
+
+        ima = Int32MultiArray()
+        ima.data = path
+        return ima

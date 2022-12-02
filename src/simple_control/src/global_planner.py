@@ -9,7 +9,7 @@ from grid_class import Grid
 from astar_class import AStar
 
 from geometry_msgs.msg import Vector3, PoseStamped, TwistStamped, Vector3Stamped, PointStamped, Point
-from std_msgs.msg import String, Bool, Float64, Int32
+from std_msgs.msg import String, Bool, Float64, Int32, Int32MultiArray
 from sensor_msgs.msg import LaserScan
 from tf2_geometry_msgs import do_transform_point
 from nav_msgs.msg import OccupancyGrid, Path, MapMetaData
@@ -51,8 +51,7 @@ class GlobalPlanner():
 
     self.position_pub = rospy.Publisher("/uav/input/position", Vector3, queue_size=1)
     self.map_pub = rospy.Publisher("/map", OccupancyGrid, queue_size=1)
-
-    # self.use_key_service = rospy.Service('use_key', use_key, self.use_key_function)
+    self.final_path_pub = rospy.Publisher("/uav/final_path", Int32MultiArray, queue_size=1)
 
     self.tfBuffer = tf2_ros.Buffer()
     self.listener = tf2_ros.TransformListener(self.tfBuffer)
@@ -132,6 +131,14 @@ class GlobalPlanner():
   def move(self):
     self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
     if abs(self.drone_pose.position.x - self.next_move.x) < .1 and abs(self.drone_pose.position.y - self.next_move.y) < .1:
+      # if position matches dog position here, publish shortest path and grid and stop
+      print("next move:", self.next_move)
+      print("dog pos:", self.dog_pos)
+      if abs(self.next_move.x - self.dog_pos.x + .5) < .1 and abs(self.next_move.x - self.dog_pos.y + .5) < .1:
+        self.grid_lock.acquire()
+        self.final_path_pub.publish(self.grid.get_shortest_path(self.dog_pos))
+        self.grid_lock.release()
+        rospy.signal_shutdown("found dog")
       self.initial_updates = self.grid.updates
       self.state = self.PLANNING_ROUTE
       pass
@@ -160,9 +167,6 @@ class GlobalPlanner():
       elif self.state == self.MOVING:
         # maybe add some abort functionality here if close to a wall
         self.move()
-        # if position matches dog position here, publish shortest path and grid and stop
-        # shortest_path = self.grid.get_shortest_path(self.dog_pos)
-
 
       rate.sleep()
 
