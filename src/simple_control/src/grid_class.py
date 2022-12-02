@@ -2,6 +2,7 @@ import math
 import copy
 import numpy as np
 from collections import deque
+from itertools import chain
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Vector3, Pose, Point
 from std_msgs.msg import Int32MultiArray
@@ -23,6 +24,8 @@ class Grid:
         self.average_diffs = [[0] * width for _ in range(height)]
         self.free_threshold = 50
         self.door_threshold = 0.04
+        self.seen = [[False] * width for _ in range(height)]
+        self.doors = []
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
@@ -41,10 +44,14 @@ class Grid:
         return world_x, world_y
     
     def set_cell(self, x, y, val):
+        self.seen[y][x] = True
         self.grid[y][x] = val
+
+    def in_bounds(self, x, y):
+        return 0 <= x < self.width and 0 <= y < self.height
     
     def can_travel(self, x, y):
-        if 0 <= x < self.width and 0 <= y < self.height: # if less than 0, it is a door or the dog
+        if self.in_bounds(x, y): # if less than 0, it is a door or the dog
             return -3 <= self.grid[y][x] <= self.free_threshold
         return False
 
@@ -94,6 +101,7 @@ class Grid:
                 grid_x = int(math.floor(self.width / 2)) + white_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - white_cell[1]
                 if self.grid[grid_y][grid_x] >= 0:
+                    self.seen[grid_y][grid_x] = True
                     self.grid[grid_y][grid_x] -= 3
                     self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
@@ -102,6 +110,7 @@ class Grid:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
                 if (self.grid[grid_y][grid_x] >= 0):
+                    self.seen[grid_y][grid_x] = True
                     self.grid[grid_y][grid_x] += 3
                     self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
@@ -118,8 +127,10 @@ class Grid:
                         and self.grid[grid_y][grid_x] != -4
                         and self.grid[grid_y][grid_x] != -2
                         and self.times_diff_measured[grid_y][grid_x] >= 10):
+                        self.seen[grid_y][grid_x] = True
                         self.grid[grid_y][grid_x] = -1
                     elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
+                        self.seen[grid_y][grid_x] = True
                         self.grid[grid_y][grid_x] = 100
 
                     self.times_diff_measured[grid_y][grid_x] += 1
@@ -220,7 +231,12 @@ class Grid:
         for row in self.grid[::-1]:
             r = []
             for cell in row:
-                r.append(100 if cell == -4 else cell)
+                if cell == -4:
+                    r.append(100)
+                elif cell == -5:
+                    r.append(0)
+                else:
+                    r.append(cell)
             data.append(r)
         
         data2 = [[None] * self.width for _ in range(self.height)]
@@ -236,30 +252,37 @@ class Grid:
         return og
     
     def get_shortest_path(self, dog_pos):
-        start_x, start_y = self.width // 2, self.height // 2
+        start_x, start_y = int(self.width / 2), int(self.height / 2)
         dog_x, dog_y = self.world_to_grid(dog_pos)
         came_from = {(start_x, start_y): None}
         q = deque([(start_x, start_y)])
+        door_num = 0
         while q:
             x, y = q.popleft()
+            if door_num < 3 and (x, y) == self.doors[door_num]:
+                door_num += 1
+                q.clear()
             if x == dog_x and y == dog_y:
                 break
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                 nxt_x, nxt_y = x + dx, y + dy
-                if (nxt_x, nxt_y) not in came_from and self.can_travel(nxt_x, nxt_y):
+                if (nxt_x, nxt_y) not in came_from and (self.can_travel(nxt_x, nxt_y) or (self.in_bounds(nxt_x, nxt_y) and self.grid[nxt_y][nxt_x] == -5)):
                     came_from[(nxt_x, nxt_y)] = (x, y)
                     q.append((nxt_x, nxt_y))
         
-        path = [(dog_x, dog_y)]
-        while path[-1] != (start_x, start_y):
-            path.append(came_from[path[-1]])
-        path.reverse()
-        for i, (x, y) in enumerate(path):
-            gx, gy = self.grid_to_world((x, y))
-            path[i] = (int(gx + .51), int(gy + .51))
+        grid_path = [(dog_x, dog_y)]
+        while grid_path[-1] != (start_x, start_y):
+            grid_path.append(came_from[grid_path[-1]])
+        grid_path.reverse()
 
-        print("shortest path (world coords):\n", path)
+        # print("shortest path (grid coords):")
+        # print(grid_path)
+
+        world_path = [(x - int(self.width / 2), int(self.height / 2) - y) for x, y in grid_path]
+
+        # print("shortest path (world coords):")
+        # print(world_path)
 
         ima = Int32MultiArray()
-        ima.data = path
+        ima.data = list(chain(*world_path))
         return ima

@@ -26,6 +26,7 @@ class GlobalPlanner():
     self.PLANNING_ROUTE = 1
     self.OPENING_DOOR = 2
     self.MOVING = 3
+    self.DONE = 4
     self.state = 0
 
     self.keys_left = 4
@@ -39,6 +40,7 @@ class GlobalPlanner():
     self.lidar_reading = LaserScan()
     self.drone_pose = PoseStamped()
     self.dog_pos = Vector3()
+    self.last_pos = Point(0, 0, 3.0)
     self.next_move = Point()
 
     self.initial_updates = 0
@@ -52,6 +54,8 @@ class GlobalPlanner():
     self.position_pub = rospy.Publisher("/uav/input/position", Vector3, queue_size=1)
     self.map_pub = rospy.Publisher("/map", OccupancyGrid, queue_size=1)
     self.final_path_pub = rospy.Publisher("/uav/final_path", Int32MultiArray, queue_size=1)
+
+    self.shortest_path = None
 
     self.tfBuffer = tf2_ros.Buffer()
     self.listener = tf2_ros.TransformListener(self.tfBuffer)
@@ -120,8 +124,11 @@ class GlobalPlanner():
     use_key_function = rospy.ServiceProxy('use_key', use_key)
     res = use_key_function(self.next_move)
     grid_x, grid_y = self.grid.world_to_grid(self.next_move)
+    last_grid_x, last_grid_y = self.grid.world_to_grid(self.last_pos)
     if res.success:
       self.grid.set_cell(grid_x, grid_y, -2)
+      self.grid.doors.append((grid_x, grid_y))
+      self.grid.set_cell(last_grid_x, last_grid_y, -5)
       self.state = self.MOVING
     else:
       self.grid.set_cell(grid_x, grid_y, -4)
@@ -131,17 +138,14 @@ class GlobalPlanner():
   def move(self):
     self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
     if abs(self.drone_pose.position.x - self.next_move.x) < .1 and abs(self.drone_pose.position.y - self.next_move.y) < .1:
+      self.last_pos = self.next_move
       # if position matches dog position here, publish shortest path and grid and stop
-      print("next move:", self.next_move)
-      print("dog pos:", self.dog_pos)
-      if abs(self.next_move.x - self.dog_pos.x + .5) < .1 and abs(self.next_move.x - self.dog_pos.y + .5) < .1:
-        self.grid_lock.acquire()
-        self.final_path_pub.publish(self.grid.get_shortest_path(self.dog_pos))
-        self.grid_lock.release()
-        rospy.signal_shutdown("found dog")
+
       self.initial_updates = self.grid.updates
-      self.state = self.PLANNING_ROUTE
-      pass
+      if abs(self.next_move.x - self.dog_pos.x - .5) < .1 and abs(self.next_move.y - self.dog_pos.y - .5) < .1:
+        self.state = self.DONE
+      else:
+        self.state = self.PLANNING_ROUTE
 
   # This is the main loop of this class
   def MainLoop(self):
@@ -167,6 +171,13 @@ class GlobalPlanner():
       elif self.state == self.MOVING:
         # maybe add some abort functionality here if close to a wall
         self.move()
+
+      elif self.state == self.DONE:
+        if self.shortest_path is None:
+          self.grid_lock.acquire()
+          self.shortest_path = self.grid.get_shortest_path(self.dog_pos)
+          self.grid_lock.release()
+        self.final_path_pub.publish(self.shortest_path)
 
       rate.sleep()
 
