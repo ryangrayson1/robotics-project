@@ -24,7 +24,6 @@ class Grid:
         self.average_diffs = [[0] * width for _ in range(height)]
         self.free_threshold = 50
         self.door_threshold = 0.04
-        self.seen = [[False] * width for _ in range(height)]
         self.doors = []
     
     # assumes fully raw position as input, such as from the dog position
@@ -44,7 +43,6 @@ class Grid:
         return world_x, world_y
     
     def set_cell(self, x, y, val):
-        self.seen[y][x] = True
         self.grid[y][x] = val
 
     def in_bounds(self, x, y):
@@ -101,7 +99,6 @@ class Grid:
                 grid_x = int(math.floor(self.width / 2)) + white_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - white_cell[1]
                 if self.grid[grid_y][grid_x] >= 0:
-                    self.seen[grid_y][grid_x] = True
                     self.grid[grid_y][grid_x] -= 3
                     self.grid[grid_y][grid_x] = max(self.grid[grid_y][grid_x], 0)
 
@@ -110,7 +107,6 @@ class Grid:
                 grid_x = int(math.floor(self.width / 2)) + black_cell[0]
                 grid_y = int(math.floor(self.height / 2)) - black_cell[1]
                 if (self.grid[grid_y][grid_x] >= 0):
-                    self.seen[grid_y][grid_x] = True
                     self.grid[grid_y][grid_x] += 3
                     self.grid[grid_y][grid_x] = min(self.grid[grid_y][grid_x], 100)
 
@@ -127,10 +123,8 @@ class Grid:
                         and self.grid[grid_y][grid_x] != -4
                         and self.grid[grid_y][grid_x] != -2
                         and self.times_diff_measured[grid_y][grid_x] >= 10):
-                        self.seen[grid_y][grid_x] = True
                         self.grid[grid_y][grid_x] = -1
                     elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
-                        self.seen[grid_y][grid_x] = True
                         self.grid[grid_y][grid_x] = 100
 
                     self.times_diff_measured[grid_y][grid_x] += 1

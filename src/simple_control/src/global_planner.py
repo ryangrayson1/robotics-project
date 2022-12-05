@@ -43,8 +43,6 @@ class GlobalPlanner():
     self.last_pos = Point(0, 0, 3.0)
     self.next_move = Point()
 
-    self.initial_updates = 0
-
     # subscribers
     self.tower_pos_sub = rospy.Subscriber("/cell_tower/position", Vector3, self.tower_pos_callback, queue_size=1)
     self.lidar_sub = rospy.Subscriber("/uav/sensors/lidar", LaserScan, self.lidar_callback, queue_size=1)
@@ -78,7 +76,6 @@ class GlobalPlanner():
         self.dog_pos = Vector3(new_point.point.x, new_point.point.y, new_point.point.z)
         dog_x, dog_y = self.grid.world_to_grid(self.dog_pos)
         self.grid.set_cell(dog_x, dog_y, -3)
-        self.initial_updates = self.grid.updates
         self.state = self.PLANNING_ROUTE
       except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
         print('tf2 exception, continuing')
@@ -132,7 +129,6 @@ class GlobalPlanner():
       self.state = self.MOVING
     else:
       self.grid.set_cell(grid_x, grid_y, -4)
-      self.initial_updates = self.grid.updates
       self.state = self.PLANNING_ROUTE
 
   def move(self):
@@ -141,7 +137,6 @@ class GlobalPlanner():
       self.last_pos = self.next_move
       # if position matches dog position here, publish shortest path and grid and stop
 
-      self.initial_updates = self.grid.updates
       if abs(self.next_move.x - self.dog_pos.x - .5) < .1 and abs(self.next_move.y - self.dog_pos.y - .5) < .1:
         self.state = self.DONE
       else:
