@@ -233,16 +233,11 @@ class Grid:
                     r.append(cell)
             data.append(r)
         
-        data2 = [[None] * self.width for _ in range(self.height)]
-        for y in range(self.height):
-            for x in range(self.width):
-                data2[y][x] = data[x][y] - .5
-        
-        data3 = []
-        for row in data2:
-            for cell in row:
-                data3.append(cell)
-        og.data = data3
+        data2 = []
+        for c in range(self.width):
+            for r in range(self.height):
+                data2.append(data[r][c])
+        og.data = data2
         return og
     
     def get_shortest_path(self, dog_pos):
