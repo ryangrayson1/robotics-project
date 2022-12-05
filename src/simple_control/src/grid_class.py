@@ -85,13 +85,15 @@ class Grid:
                 j += 1
             
             # if the measured distance is only slightly greater than the distance to some cell, then that cell is probably black
-            if j < len(cells_crossed) and abs(cells_crossed[j][2] - lidar_reading.ranges[i]) > abs(cells_crossed[j-1][2] - lidar_reading.ranges[i]):
+            if (lidar_reading.ranges[i] < lidar_reading.range_max 
+                and (j == len(cells_crossed) 
+                or abs(cells_crossed[j][2] - lidar_reading.ranges[i]) > abs(cells_crossed[j-1][2] - lidar_reading.ranges[i]))):
                 white_cells.pop(-1)
                 j -= 1
 
             # black cell only exists if lidar was interrupted before range_max
             black_cell = None
-            if j < len(cells_crossed):
+            if lidar_reading.ranges[i] < lidar_reading.range_max:
                 black_cell = cells_crossed[j]
             
             # mark the white cells as white (make them whiter)
