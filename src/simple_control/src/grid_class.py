@@ -124,7 +124,8 @@ class Grid:
                         and self.average_diffs[grid_y][grid_x] > self.door_threshold 
                         and self.grid[grid_y][grid_x] != -4
                         and self.grid[grid_y][grid_x] != -2
-                        and self.times_diff_measured[grid_y][grid_x] >= 10):
+                        and self.times_diff_measured[grid_y][grid_x] >= 10
+                        and sum(black_cell[:2]) % 2):
                         self.grid[grid_y][grid_x] = -1
                     elif self.grid[grid_y][grid_x] == -1 and self.average_diffs[grid_y][grid_x] < self.door_threshold:
                         self.grid[grid_y][grid_x] = 100
