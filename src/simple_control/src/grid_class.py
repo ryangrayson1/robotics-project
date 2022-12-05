@@ -22,7 +22,7 @@ class Grid:
         self.current_measures = None
         self.times_diff_measured = [[0] * width for _ in range(height)]
         self.average_diffs = [[0] * width for _ in range(height)]
-        self.free_threshold = 50
+        self.free_threshold = 70
         self.door_threshold = 0.04
         self.doors = []
     

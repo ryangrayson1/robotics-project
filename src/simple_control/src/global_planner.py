@@ -8,7 +8,7 @@ from threading import Lock
 from grid_class import Grid
 from astar_class import AStar
 
-from geometry_msgs.msg import Vector3, PoseStamped, TwistStamped, Vector3Stamped, PointStamped, Point
+from geometry_msgs.msg import Vector3, PoseStamped, PointStamped, Point, Pose
 from std_msgs.msg import String, Bool, Float64, Int32, Int32MultiArray
 from sensor_msgs.msg import LaserScan
 from tf2_geometry_msgs import do_transform_point
@@ -38,7 +38,8 @@ class GlobalPlanner():
 
     self.tower_pos = Vector3()
     self.lidar_reading = LaserScan()
-    self.drone_pose = PoseStamped()
+    self.drone_pose = Pose()
+    self.initial_pose_set = False
     self.dog_pos = Vector3()
     self.last_pos = Point(0, 0, 3.0)
     self.next_move = Point()
@@ -81,14 +82,15 @@ class GlobalPlanner():
         print('tf2 exception, continuing')
 
   def lidar_callback(self, msg):
-    # if self.state != self.MOVING:
-    self.lidar_reading = msg
-    self.grid_lock.acquire()
-    self.grid.update(self.drone_pose, msg)
-    self.grid_lock.release()
+    if self.initial_pose_set:
+      self.lidar_reading = msg
+      self.grid_lock.acquire()
+      self.grid.update(self.drone_pose, msg)
+      self.grid_lock.release()
 
   def drone_pose_callback(self, msg):
     self.drone_pose = msg.pose
+    self.initial_pose_set = True
   
   def keys_callback(self, msg):
     self.keys_left = msg.data
@@ -126,6 +128,14 @@ class GlobalPlanner():
       self.grid.set_cell(grid_x, grid_y, -2)
       self.grid.doors.append((grid_x, grid_y))
       self.grid.set_cell(last_grid_x, last_grid_y, -5)
+      if self.next_move.x > self.drone_pose.position.x + 0.5:
+        self.next_move.x += 1
+      elif self.next_move.x < self.drone_pose.position.x - 0.5:
+        self.next_move.x -= 1
+      elif self.next_move.y > self.drone_pose.position.y + 0.5:
+        self.next_move.y += 1
+      elif self.next_move.y < self.drone_pose.position.y - 0.5:
+        self.next_move.y -= 1
       self.state = self.MOVING
     else:
       self.grid.set_cell(grid_x, grid_y, -4)

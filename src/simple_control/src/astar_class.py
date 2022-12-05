@@ -63,7 +63,8 @@ class AStar:
 
     if len(path) < 2 or path[0] != (drone_x, drone_y) or path[-1] != (dog_x, dog_y):
       print("No path found, making default move")
-      default_moves = random.shuffle([(0, 1), (1, 0), (-1, 0), (0, -1)])
+      default_moves = [(0, 1), (1, 0), (-1, 0), (0, -1)]
+      random.shuffle(default_moves)
       for ix, iy in default_moves:
         if self.grid.can_travel(drone_x + ix, drone_y + iy):
           return drone_x + ix, drone_y + iy
@@ -78,10 +79,10 @@ class AStar:
     x, y = path[0]
     i = 2
     if x == path[1][0]:
-      while i < min(5, len(path)) and path[i][0] == x and not self.grid.is_closed_door(x, path[i][1]):
+      while i < min(6, len(path)) and path[i][0] == x and not self.grid.is_closed_door(x, path[i][1]):
         i += 1
       return i - 1
     else:
-      while i < min(5, len(path)) and path[i][1] == y and not self.grid.is_closed_door(path[i][0], y):
+      while i < min(6, len(path)) and path[i][1] == y and not self.grid.is_closed_door(path[i][0], y):
         i += 1
       return i - 1
