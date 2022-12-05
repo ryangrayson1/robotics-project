@@ -65,4 +65,18 @@ class AStar:
       print("No path found")
       return None
 
-    return path[1]
+    return path[self.get_straight_line_index(path)]
+
+  def get_straight_line_index(self, path):
+    if len(path) <= 2:
+      return 1
+    x, y = path[0]
+    i = 2
+    if x == path[1][0] and len(path):
+      while path[i][0] == x and not self.grid.is_closed_door(x, path[i][1]) and i < 5:
+        i += 1
+      return i - 1
+    else:
+      while path[i][1] == y and not self.grid.is_closed_door(path[i][0], y) and i < 5:
+        i += 1
+      return i - 1
