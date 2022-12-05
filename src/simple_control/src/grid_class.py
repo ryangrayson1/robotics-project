@@ -85,13 +85,15 @@ class Grid:
                 j += 1
             
             # if the measured distance is only slightly greater than the distance to some cell, then that cell is probably black
-            if j < len(cells_crossed) and abs(cells_crossed[j][2] - lidar_reading.ranges[i]) > abs(cells_crossed[j-1][2] - lidar_reading.ranges[i]):
+            if (lidar_reading.ranges[i] < lidar_reading.range_max 
+                and (j == len(cells_crossed) 
+                or abs(cells_crossed[j][2] - lidar_reading.ranges[i]) > abs(cells_crossed[j-1][2] - lidar_reading.ranges[i]))):
                 white_cells.pop(-1)
                 j -= 1
 
             # black cell only exists if lidar was interrupted before range_max
             black_cell = None
-            if j < len(cells_crossed):
+            if lidar_reading.ranges[i] < lidar_reading.range_max:
                 black_cell = cells_crossed[j]
             
             # mark the white cells as white (make them whiter)
@@ -233,16 +235,11 @@ class Grid:
                     r.append(cell)
             data.append(r)
         
-        data2 = [[None] * self.width for _ in range(self.height)]
-        for y in range(self.height):
-            for x in range(self.width):
-                data2[y][x] = data[x][y] - .5
-        
-        data3 = []
-        for row in data2:
-            for cell in row:
-                data3.append(cell)
-        og.data = data3
+        data2 = []
+        for c in range(self.width):
+            for r in range(self.height):
+                data2.append(data[r][c])
+        og.data = data2
         return og
     
     def get_shortest_path(self, dog_pos):
