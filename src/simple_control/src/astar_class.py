@@ -1,4 +1,4 @@
-import math, copy, heapq
+import math, heapq, random
 
 class AStar:
 
@@ -62,7 +62,12 @@ class AStar:
     path.reverse()
 
     if len(path) < 2 or path[0] != (drone_x, drone_y) or path[-1] != (dog_x, dog_y):
-      print("No path found")
+      print("No path found, making default move")
+      default_moves = random.shuffle([(0, 1), (1, 0), (-1, 0), (0, -1)])
+      for ix, iy in default_moves:
+        if self.grid.can_travel(drone_x + ix, drone_y + iy):
+          return drone_x + ix, drone_y + iy
+      print("Could not make default move")
       return None
 
     return path[self.get_straight_line_index(path)]
