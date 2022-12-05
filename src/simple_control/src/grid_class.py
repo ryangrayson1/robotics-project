@@ -227,23 +227,17 @@ class Grid:
         m.origin.position.x, m.origin.position.y = pos[:2]
         og = OccupancyGrid()
         og.info = m
-        data = []
-        for row in self.grid[::-1]:
-            r = []
-            for cell in row:
-                if cell == -4:
-                    r.append(100)
-                elif cell == -5:
-                    r.append(0)
-                else:
-                    r.append(cell)
-            data.append(r)
         
         data2 = []
         for c in range(self.width):
-            for r in range(self.height):
-                data2.append(data[r][c])
-        og.data = data2
+            for r in range(self.height-1, -1, -1):
+                if self.grid[r][c] == -4:
+                    og.data.append(100)
+                elif self.grid[r][c] == -5:
+                    og.data.append(0)
+                else:
+                    og.data.append(self.grid[r][c])
+                    
         return og
     
     def get_shortest_path(self, dog_pos):
