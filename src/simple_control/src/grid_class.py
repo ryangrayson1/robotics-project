@@ -25,6 +25,7 @@ class Grid:
         self.free_threshold = 70
         self.door_threshold = 0.04
         self.doors = []
+        self.visited = [[False] * width for _ in range(height)]
     
     # assumes fully raw position as input, such as from the dog position
     def world_to_grid(self, world_pos):
@@ -251,7 +252,7 @@ class Grid:
                 break
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                 nxt_x, nxt_y = x + dx, y + dy
-                if (nxt_x, nxt_y) not in came_from and (self.can_travel(nxt_x, nxt_y) or (self.in_bounds(nxt_x, nxt_y) and self.grid[nxt_y][nxt_x] == -5)):
+                if (nxt_x, nxt_y) not in came_from and self.in_bounds(x, y) and self.visited[y][x]:
                     came_from[(nxt_x, nxt_y)] = (x, y)
                     q.append((nxt_x, nxt_y))
         

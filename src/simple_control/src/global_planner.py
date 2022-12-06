@@ -143,11 +143,11 @@ class GlobalPlanner():
 
   def move(self):
     self.position_pub.publish(Vector3(self.next_move.x, self.next_move.y, 3.0))
-    if abs(self.drone_pose.position.x - self.next_move.x) < .3 and abs(self.drone_pose.position.y - self.next_move.y) < .3:
+    if abs(self.drone_pose.position.x - self.next_move.x) < .2 and abs(self.drone_pose.position.y - self.next_move.y) < .2:
       self.last_pos = self.next_move
       # if position matches dog position here, publish shortest path and grid and stop
 
-      if abs(self.next_move.x - self.dog_pos.x - .5) < .3 and abs(self.next_move.y - self.dog_pos.y - .5) < .3:
+      if abs(self.next_move.x - self.dog_pos.x - .5) < .2 and abs(self.next_move.y - self.dog_pos.y - .5) < .2:
         self.state = self.DONE
       else:
         self.state = self.PLANNING_ROUTE
