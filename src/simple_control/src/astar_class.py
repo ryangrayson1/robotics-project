@@ -4,6 +4,8 @@ class AStar:
 
   def __init__(self, grid):
     self.grid = grid
+    self.times_planned_from = [[0] * grid.width for _ in range(grid.height)]
+    self.STRAIGHT_LINE_MAX = 5
 
   # Get the nodes that current node can go to
   def get_neighbors(self, node_x, node_y):
@@ -18,9 +20,16 @@ class AStar:
   def get_next_move(self, drone_pos, dog_pos):
     
     drone_x, drone_y = self.grid.world_to_grid(drone_pos)
+    
+    self.grid.visited[drone_y][drone_x] = True
+    self.times_planned_from[drone_y][drone_x] += 1
+    if self.times_planned_from[drone_y][drone_x] > 5:
+      self.STRAIGHT_LINE_MAX = max(self.STRAIGHT_LINE_MAX - 1, 1)
 
     for ix, iy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
       if self.grid.is_closed_door(drone_x + ix, drone_y + iy):
+        self.grid.visited[drone_y + iy][drone_x + ix] = True
+        self.grid.visited[drone_y + iy + iy][drone_x + ix + ix] = True
         return drone_x + ix, drone_y + iy
 
     dog_x, dog_y = self.grid.world_to_grid(dog_pos)
@@ -71,7 +80,11 @@ class AStar:
       print("Could not make default move")
       return None
 
-    return path[self.get_straight_line_index(path)]
+    sli = self.get_straight_line_index(path)
+    for x, y in path[:sli+1]:
+      self.grid.visited[y][x] = True
+
+    return path[sli]
 
   def get_straight_line_index(self, path):
     if len(path) <= 2:
@@ -79,10 +92,10 @@ class AStar:
     x, y = path[0]
     i = 2
     if x == path[1][0]:
-      while i < min(5, len(path)) and path[i][0] == x and not self.grid.is_closed_door(x, path[i][1]):
+      while i < min(self.STRAIGHT_LINE_MAX, len(path)) and path[i][0] == x and not self.grid.is_closed_door(x, path[i][1]):
         i += 1
       return i - 1
-    else:
-      while i < min(5, len(path)) and path[i][1] == y and not self.grid.is_closed_door(path[i][0], y):
-        i += 1
-      return i - 1
+    
+    while i < min(self.STRAIGHT_LINE_MAX, len(path)) and path[i][1] == y and not self.grid.is_closed_door(path[i][0], y):
+      i += 1
+    return i - 1
